@@ -1,0 +1,19 @@
+# Next.js
+.next/
+out/
+build/
+
+# Node
+node_modules/
+npm-debug.log*
+
+# Env (절대 커밋 금지!)
+.env.local
+.env*.local
+
+# Vercel
+.vercel
+
+# TypeScript
+*.tsbuildinfo
+next-env.d.ts
