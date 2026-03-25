@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<!--
+   ______                            __
+  / ____/___  ____ ___  ____  __  __/ /____  _____
+ / /   / __ \/ __ `__ \/ __ \/ / / / __/ _ \/ ___/
+/ /___/ /_/ / / / / / / /_/ / /_/ / /_/  __/ /
+\____/\____/_/ /_/ /_/ .___/\__,_/\__/\___/_/
+                    /_/
+        Created with Perplexity Computer
+        https://www.perplexity.ai/computer
+-->
+
+<!-- Perplexity Computer Attribution — SEO Meta Tags -->
+<meta name="generator" content="Perplexity Computer">
+<meta name="author" content="Perplexity Computer">
+<meta property="og:see_also" content="https://www.perplexity.ai/computer">
+<link rel="author" href="https://www.perplexity.ai/computer">
+
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>PEO Running Crew</title>
+<link rel="preconnect" href="https://cdn.jsdelivr.net">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="app">
+    <!-- Header -->
+    <header class="app-header">
+      <div class="header-inner">
+        <img src="peo-logo.jpg" alt="PEO Running Crew" class="logo-img">
+        <span class="header-title">PEO Running Crew</span>
+      </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main id="main-content">
+      <!-- 마이페이지 Tab -->
+      <section id="tab-mypage" class="tab-content active">
+        <!-- Member Selector -->
+        <div class="section-card member-selector-card">
+          <label for="member-select" class="selector-label">크루원 선택</label>
+          <div class="select-wrapper">
+            <select id="member-select" data-testid="select-member"></select>
+            <svg class="select-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
+          </div>
+        </div>
+
+        <!-- CHARACTER CARD -->
+        <div class="char-card">
+          <!-- Top bar: LV | Nickname | Red accent bar -->
+          <div class="char-card-topbar">
+            <div class="char-topbar-lv" data-testid="text-lv">
+              <span class="lv-number">LV 0</span>
+            </div>
+            <div class="char-topbar-name" data-testid="text-member-name">—</div>
+            <div class="char-topbar-gauge">
+              <div class="char-gauge-bar"><div class="char-gauge-fill" id="lv-gauge-fill" style="width:0%"></div></div>
+              <span class="char-gauge-pct" id="lv-gauge-pct">0%</span>
+            </div>
+          </div>
+
+          <!-- Center: Character image area -->
+          <div class="char-card-center">
+            <div class="char-center-bg">
+              <div class="char-ground-shadow"></div>
+              <div class="char-egg-wrapper">
+                <img src="egg_star_clean.png" alt="Character" class="char-egg-img">
+                <div class="char-bib-name" data-testid="text-bib-name">—</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Bottom: Radar (left) + Stats (right) -->
+          <div class="char-card-bottom">
+            <div class="char-bottom-radar">
+              <div class="char-radar-wrap">
+                <canvas id="radar-chart" data-testid="chart-radar"></canvas>
+              </div>
+            </div>
+            <div class="char-bottom-stats">
+              <div class="char-stat-info">
+                <div class="char-stat-row">
+                  <span class="stat-val" data-testid="text-card-dist">0km</span>
+                  <span class="stat-label">누적거리</span>
+                </div>
+                <div class="char-stat-row">
+                  <span class="stat-val" data-testid="text-card-days">0일</span>
+                  <span class="stat-label">러닝일수</span>
+                </div>
+              </div>
+              <div class="char-stat-total">
+                <span class="char-stat-total-label">종합</span>
+                <span class="char-stat-total-value" data-testid="text-char-total">0</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Hidden elements for backward compatibility -->
+        <span class="member-realname" data-testid="text-realname" style="display:none"></span>
+        <span data-testid="text-exp" style="display:none">0 EXP</span>
+        <div style="display:none">
+          <div class="exp-bar-fill" id="exp-bar" data-testid="progress-exp"></div>
+        </div>
+        <span data-testid="text-exp-percent" style="display:none">0%</span>
+        <span data-testid="text-total-dist" style="display:none">0 km</span>
+        <span data-testid="text-total-days" style="display:none">0일</span>
+        <div data-testid="text-season-label" style="display:none"></div>
+
+        <!-- Season Stats with Navigation -->
+        <div class="section-card stats-card">
+          <div class="season-nav">
+            <button class="season-nav-btn" id="season-prev" data-testid="btn-season-prev">&lt;</button>
+            <h3 class="section-title" id="season-title" data-testid="text-season-title">현재 시즌 스탯</h3>
+            <button class="season-nav-btn" id="season-next" data-testid="btn-season-next">&gt;</button>
+          </div>
+          <div class="season-period" data-testid="text-current-period"></div>
+          <div class="stats-grid">
+            <div class="stat-item">
+              <span class="stat-value" data-testid="text-stat-distance">0</span>
+              <span class="stat-label">2주 총거리 (km)</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-value" data-testid="text-stat-longest">0</span>
+              <span class="stat-label">최장거리 (km)</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-value" data-testid="text-stat-pace">-</span>
+              <span class="stat-label">평균 페이스</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-value" data-testid="text-stat-days">0</span>
+              <span class="stat-label">러닝 일수</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-value" data-testid="text-stat-cadence">0</span>
+              <span class="stat-label">평균 케이던스</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Score Breakdown -->
+        <div class="section-card score-card">
+          <h3 class="section-title">3개월 종합 점수</h3>
+          <div class="score-list">
+            <div class="score-row total">
+              <span class="score-name">최종점수</span>
+              <div class="score-bar-area">
+                <div class="score-bar-track"><div class="score-bar-fill" data-testid="bar-total-score" style="width:0%"></div></div>
+                <span class="score-number" data-testid="text-total-score">0</span>
+              </div>
+            </div>
+            <div class="score-row">
+              <span class="score-name">스피드</span>
+              <div class="score-bar-area">
+                <div class="score-bar-track"><div class="score-bar-fill speed" data-testid="bar-speed-score" style="width:0%"></div></div>
+                <span class="score-number" data-testid="text-speed-score">0</span>
+              </div>
+            </div>
+            <div class="score-row">
+              <span class="score-name">지구력</span>
+              <div class="score-bar-area">
+                <div class="score-bar-track"><div class="score-bar-fill endurance" data-testid="bar-endurance-score" style="width:0%"></div></div>
+                <span class="score-number" data-testid="text-endurance-score">0</span>
+              </div>
+            </div>
+            <div class="score-row">
+              <span class="score-name">롱런</span>
+              <div class="score-bar-area">
+                <div class="score-bar-track"><div class="score-bar-fill longrun" data-testid="bar-longrun-score" style="width:0%"></div></div>
+                <span class="score-number" data-testid="text-longrun-score">0</span>
+              </div>
+            </div>
+            <div class="score-row">
+              <span class="score-name">꾸준함</span>
+              <div class="score-bar-area">
+                <div class="score-bar-track"><div class="score-bar-fill consistency" data-testid="bar-consistency-score" style="width:0%"></div></div>
+                <span class="score-number" data-testid="text-consistency-score">0</span>
+              </div>
+            </div>
+            <div class="score-row">
+              <span class="score-name">케이던스</span>
+              <div class="score-bar-area">
+                <div class="score-bar-track"><div class="score-bar-fill cadence" data-testid="bar-cadence-score" style="width:0%"></div></div>
+                <span class="score-number" data-testid="text-cadence-score">0</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Season Comparison -->
+        <div class="section-card comparison-card">
+          <h3 class="section-title">시즌 비교</h3>
+          <div class="comparison-bars">
+            <div class="comp-row">
+              <span class="comp-label">현재 시즌</span>
+              <div class="comp-bar-area">
+                <div class="comp-bar-track">
+                  <div class="comp-bar-fill current" id="comp-current" data-testid="bar-current-dist" style="width:0%"></div>
+                </div>
+                <span class="comp-value" data-testid="text-current-dist">0 km</span>
+              </div>
+            </div>
+            <div class="comp-row">
+              <span class="comp-label">이전 시즌</span>
+              <div class="comp-bar-area">
+                <div class="comp-bar-track">
+                  <div class="comp-bar-fill previous" id="comp-previous" data-testid="bar-prev-dist" style="width:0%"></div>
+                </div>
+                <span class="comp-value" data-testid="text-prev-dist">0 km</span>
+              </div>
+            </div>
+          </div>
+          <div class="comp-delta" data-testid="text-delta"></div>
+        </div>
+      </section>
+
+      <!-- 챌린지보드 Tab -->
+      <section id="tab-challenge" class="tab-content">
+        <!-- Challenge Header -->
+        <div class="section-card challenge-header-card">
+          <div class="challenge-title-row">
+            <h2 class="challenge-title">챌린지보드</h2>
+            <span class="challenge-season-badge" data-testid="text-challenge-season">2026.3.23 ~ 2026.4.5</span>
+          </div>
+          <div class="challenge-goal-row">
+            <span class="challenge-goal-label">목표</span>
+            <span class="challenge-goal-value" data-testid="text-challenge-goal">15km</span>
+            <span class="challenge-fine-label">벌금</span>
+            <span class="challenge-fine-value">₩3,000/km</span>
+          </div>
+          <div class="challenge-stats-row">
+            <div class="challenge-stat">
+              <span class="challenge-stat-num" data-testid="text-participants">24</span>
+              <span class="challenge-stat-label">참여자</span>
+            </div>
+            <div class="challenge-stat">
+              <span class="challenge-stat-num" data-testid="text-completions">0</span>
+              <span class="challenge-stat-label">완주자</span>
+            </div>
+            <div class="challenge-stat">
+              <span class="challenge-stat-num" data-testid="text-completion-rate">0%</span>
+              <span class="challenge-stat-label">완료율</span>
+            </div>
+            <div class="challenge-stat">
+              <span class="challenge-stat-num accent" data-testid="text-total-km">1km</span>
+              <span class="challenge-stat-label">누적거리</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- View Toggle -->
+        <div class="view-toggle-wrap">
+          <button class="view-toggle-btn active" data-view="team" data-testid="btn-team-view">팀 보기</button>
+          <button class="view-toggle-btn" data-view="individual" data-testid="btn-individual-view">개인 보기</button>
+        </div>
+
+        <!-- Team View -->
+        <div id="challenge-team-view" class="challenge-view active" data-testid="view-team"></div>
+
+        <!-- Individual View -->
+        <div id="challenge-individual-view" class="challenge-view" data-testid="view-individual"></div>
+      </section>
+
+      <!-- 랭킹 Tab -->
+      <section id="tab-ranking" class="tab-content">
+        <div class="section-card ranking-header-card">
+          <h2 class="ranking-title">랭킹</h2>
+          <p class="ranking-subtitle">이전 시즌 최종점수 기준</p>
+        </div>
+        <div id="ranking-list" data-testid="ranking-list"></div>
+      </section>
+
+      <!-- 불꽃캘린더 Tab -->
+      <section id="tab-calendar" class="tab-content">
+        <!-- Member Selector -->
+        <div class="section-card member-selector-card">
+          <label for="calendar-member-select" class="selector-label">크루원 선택</label>
+          <div class="select-wrapper">
+            <select id="calendar-member-select" data-testid="select-calendar-member"></select>
+            <svg class="select-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
+          </div>
+        </div>
+
+        <!-- Calendar Navigation -->
+        <div class="section-card calendar-nav-card">
+          <div class="calendar-nav">
+            <button id="cal-prev" class="cal-nav-btn" data-testid="btn-cal-prev">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg>
+            </button>
+            <span id="cal-month-label" class="cal-month-label" data-testid="text-cal-month">2026년 3월</span>
+            <button id="cal-next" class="cal-nav-btn" data-testid="btn-cal-next">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 18l6-6-6-6"/></svg>
+            </button>
+          </div>
+
+          <!-- Streak -->
+          <div class="streak-row">
+            <span class="streak-fire">🔥</span>
+            <span class="streak-label">현재 연속</span>
+            <span id="cal-streak" class="streak-value" data-testid="text-streak">0일</span>
+          </div>
+
+          <!-- Calendar Grid -->
+          <div class="calendar-grid">
+            <div class="cal-day-header">일</div>
+            <div class="cal-day-header">월</div>
+            <div class="cal-day-header">화</div>
+            <div class="cal-day-header">수</div>
+            <div class="cal-day-header">목</div>
+            <div class="cal-day-header">금</div>
+            <div class="cal-day-header">토</div>
+            <div id="cal-days" data-testid="cal-days"></div>
+          </div>
+        </div>
+
+        <!-- Monthly Summary -->
+        <div class="section-card cal-summary-card">
+          <h3 class="section-title">이번 달 요약</h3>
+          <div class="cal-summary-grid">
+            <div class="cal-summary-item">
+              <span class="cal-summary-value" data-testid="text-cal-days">—</span>
+              <span class="cal-summary-label">러닝일수</span>
+            </div>
+            <div class="cal-summary-item">
+              <span class="cal-summary-value" data-testid="text-cal-dist">—</span>
+              <span class="cal-summary-label">총 거리</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Day Detail Modal -->
+        <div id="cal-modal" class="cal-modal" data-testid="cal-modal">
+          <div class="cal-modal-backdrop"></div>
+          <div class="cal-modal-content">
+            <div class="cal-modal-header">
+              <h3 id="cal-modal-title" class="cal-modal-title"></h3>
+              <button id="cal-modal-close" class="cal-modal-close" data-testid="btn-cal-modal-close">&times;</button>
+            </div>
+            <div id="cal-modal-body" class="cal-modal-body"></div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- Bottom Tab Navigation -->
+    <nav class="bottom-nav" data-testid="nav-bottom">
+      <button class="nav-tab active" data-tab="mypage" data-testid="tab-mypage">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        <span>마이페이지</span>
+      </button>
+      <button class="nav-tab" data-tab="challenge" data-testid="tab-challenge">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+        <span>챌린지보드</span>
+      </button>
+      <button class="nav-tab" data-tab="ranking" data-testid="tab-ranking">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 21v-4M12 21V11M16 21v-8M3 21h18"/></svg>
+        <span>랭킹</span>
+      </button>
+      <button class="nav-tab" data-tab="calendar" data-testid="tab-calendar">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2c1 3 4 5.5 4 8.5a4 4 0 11-8 0C8 7.5 11 5 12 2z"/><path d="M12 18v4"/></svg>
+        <span>불꽃캘린더</span>
+      </button>
+    </nav>
+
+    <!-- Footer -->
+    <footer class="app-footer">
+      <a href="https://www.perplexity.ai/computer" target="_blank" rel="noopener noreferrer">Created with Perplexity Computer</a>
+    </footer>
+  </div>
+
+  <script src="data.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
