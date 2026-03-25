@@ -1,7 +1,6 @@
 /**
- * POST /api/recalc
- * 활동 데이터를 바탕으로 시즌 점수를 재계산하고
- * member_season_stats + members (lv, total_exp, total_dist, total_days) 업데이트
+ * POST /api/recalc  (Authorization 필요)
+ * GET  /api/recalc  (임시 — 계산 완료 후 삭제 예정)
  */
 import { NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
@@ -10,16 +9,11 @@ import {
   calcConsistencyScore, calcEfficiencyScore, calcTotalScore, calcLv
 } from '@/lib/scoring'
 
-export async function POST(request: Request) {
-  const authHeader = request.headers.get('authorization')
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-
+async function runRecalc() {
   const db = createServiceClient()
 
   const { data: season } = await db.from('seasons').select('*').eq('is_current', true).single()
-  if (!season) return NextResponse.json({ error: '시즌 없음' }, { status: 400 })
+  if (!season) throw new Error('시즌 없음')
 
   const { data: acts } = await db.from('activities')
     .select('member_nickname, distance_km, avg_pace_sec, moving_time_sec, elapsed_time_sec, date')
@@ -58,7 +52,6 @@ export async function POST(request: Request) {
       consistency_score: consistency, efficiency_score: effScore, total_score: total,
     }, { onConflict: 'member_nickname,season_id' })
 
-    // member 전체 누적 업데이트
     const { data: allActs } = await db.from('activities').select('distance_km, date').eq('member_nickname', nick)
     const totalDist = (allActs || []).reduce((sum: number, a: { distance_km: number }) => sum + a.distance_km, 0)
     const totalDays = new Set((allActs || []).map((a: { date: string }) => a.date)).size
@@ -70,7 +63,6 @@ export async function POST(request: Request) {
     updated++
   }
 
-  // 랜크 업데이트
   const { data: allStats } = await db.from('member_season_stats').select('id').eq('season_id', season.id).order('total_score', { ascending: false })
   if (allStats) {
     for (let i = 0; i < allStats.length; i++) {
@@ -78,5 +70,27 @@ export async function POST(request: Request) {
     }
   }
 
-  return NextResponse.json({ success: true, updated, message: `${updated}명 점수 재계산 완료` })
+  return updated
+}
+
+export async function GET() {
+  try {
+    const updated = await runRecalc()
+    return NextResponse.json({ success: true, updated, message: `${updated}명 점수 재계산 완료` })
+  } catch (error) {
+    return NextResponse.json({ error: String(error) }, { status: 500 })
+  }
+}
+
+export async function POST(request: Request) {
+  const authHeader = request.headers.get('authorization')
+  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+  try {
+    const updated = await runRecalc()
+    return NextResponse.json({ success: true, updated, message: `${updated}명 점수 재계산 완료` })
+  } catch (error) {
+    return NextResponse.json({ error: String(error) }, { status: 500 })
+  }
 }
