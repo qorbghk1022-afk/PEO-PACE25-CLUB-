@@ -3,11 +3,11 @@
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
-  --orange: #FF6B35;
-  --yellow: #FFD23F;
+  --orange: #000000;
+  --yellow: #333333;
   --gray-bg: #f5f5f5;
   --white: #ffffff;
-  --text: #333;
+  --text: #111;
   --sub: #888;
   --radius: 16px;
   --shadow: 0 4px 20px rgba(0,0,0,0.08);
@@ -15,7 +15,7 @@
 
 html, body {
   font-family: 'Noto Sans KR', -apple-system, sans-serif;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: #E8E8E8;
   min-height: 100vh;
   color: var(--text);
 }
@@ -31,14 +31,14 @@ html, body {
 
 /* 헤더 */
 .app-header {
-  background: linear-gradient(135deg, #FF6B35, #FF8C42);
-  padding: 12px 20px;
+  background: #000;
+  padding: 10px 16px;
   color: white;
 }
-.header-logo { display: flex; align-items: center; gap: 8px; }
-.header-egg { font-size: 24px; }
-.header-logo h1 { font-size: 22px; font-weight: 900; letter-spacing: 2px; }
-.header-sub { font-size: 12px; opacity: 0.8; letter-spacing: 1px; }
+.header-logo { display: flex; align-items: center; gap: 10px; }
+.header-logo-img { width: 34px; height: 34px; border-radius: 6px; object-fit: cover; }
+.header-logo h1 { font-size: 20px; font-weight: 900; letter-spacing: 1px; color: #fff; }
+.header-sub { font-size: 11px; opacity: 0.6; letter-spacing: 1px; color: #fff; }
 
 /* 탭 네비게이션 */
 .tab-nav {
@@ -67,7 +67,7 @@ html, body {
   border-bottom: 2px solid transparent;
 }
 .tab-btn span { font-size: 10px; }
-.tab-btn.active { color: var(--orange); border-bottom-color: var(--orange); }
+.tab-btn.active { color: #000; border-bottom-color: #000; font-weight: 700; }
 
 .tab-content { flex: 1; overflow-y: auto; padding: 16px; }
 
@@ -96,7 +96,7 @@ html, body {
   font-family: 'Noto Sans KR', sans-serif;
   transition: all 0.2s;
 }
-.member-chip.active { background: var(--orange); color: white; border-color: var(--orange); }
+.member-chip.active { background: #000; color: white; border-color: #000; }
 
 /* 쫠릭터 카드 */
 .character-card {

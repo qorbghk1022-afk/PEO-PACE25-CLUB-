@@ -76,7 +76,7 @@ export default function MyPage({
       <div className="member-selector">
         {members.map(m => (
           <button key={m.nickname} className={`member-chip ${m.nickname === member.nickname ? 'active' : ''}`} onClick={() => onSelectMember(m)}>
-            {EGG_EMOJI[m.egg_type] || '🥚'} {m.nickname}
+            {m.nickname}
           </button>
         ))}
       </div>

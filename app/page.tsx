@@ -57,7 +57,7 @@ export default function Home() {
     <div className="app">
       <header className="app-header">
         <div className="header-logo">
-          <span className="header-egg">🥚</span>
+          <img src="/peo-logo.jpg" alt="PEO" className="header-logo-img" />
           <h1>PEO</h1>
           <span className="header-sub">PACE25 CLUB</span>
         </div>
