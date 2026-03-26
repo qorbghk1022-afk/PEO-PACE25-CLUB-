@@ -46,8 +46,12 @@ export function calcTotalScore(s: {
   return s.speed * 0.3 + s.endurance * 0.25 + s.longRun * 0.15 + s.consistency * 0.2 + s.efficiency * 0.1
 }
 
-/** LV 계산: ROUNDDOWN(100 x (EXP/b)^p) */
-export function calcLv(totalExp: number, b = 6720, p = 0.72): number {
+/** LV 계산: ROUNDDOWN(100 x (EXP/b)^p)
+ *  b=54000: 5개 능력치 체계 기준 난이도 파라미터 (스펙 v2.0)
+ *  p=0.72:  레벨 상승 곡선 감속 지수
+ *  목표: LV10≈2개월 / LV30≈12개월 / LV50≈24개월 / LV100=이론상 불가
+ */
+export function calcLv(totalExp: number, b = 54000, p = 0.72): number {
   if (totalExp <= 0) return 1
   return Math.max(1, Math.floor(100 * Math.pow(totalExp / b, p)))
 }
