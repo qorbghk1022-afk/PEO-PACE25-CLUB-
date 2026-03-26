@@ -1,6 +1,6 @@
 'use client'
 
-import type { Member, SeasonStats } from '@/lib/types'
+import type { Member, SeasonStats, RollingScores } from '@/lib/types'
 import { formatPace, formatDist } from '@/lib/scoring'
 
 const EGG_EMOJI: Record<string, string> = { star: '⭐', cloud: '☁️', moon: '🌙', heart: '❤️', sun: '☀️' }
@@ -42,8 +42,8 @@ function RadarChart({ scores }: { scores: Record<string, number> }) {
         const a = pt((360 / n) * i, r)
         return <line key={i} x1={cx} y1={cy} x2={a.x} y2={a.y} stroke="#e0e0e0" strokeWidth="1" />
       })}
-      <path d={dataPath} fill="rgba(255,107,53,0.25)" stroke="#FF6B35" strokeWidth="2" />
-      {dataPoints.map((p, i) => <circle key={i} cx={p.x} cy={p.y} r="3" fill="#FF6B35" />)}
+      <path d={dataPath} fill="rgba(0,0,0,0.12)" stroke="#000" strokeWidth="2" />
+      {dataPoints.map((p, i) => <circle key={i} cx={p.x} cy={p.y} r="3" fill="#000" />)}
       {labels.map((label, i) => {
         const lp = pt((360 / n) * i, r + 16)
         return <text key={i} x={lp.x} y={lp.y} textAnchor="middle" dominantBaseline="middle" fontSize="9" fill="#666">{label}</text>
@@ -53,21 +53,23 @@ function RadarChart({ scores }: { scores: Record<string, number> }) {
 }
 
 export default function MyPage({
-  member, stats, members, onSelectMember
+  member, stats, rollingScores, members, onSelectMember
 }: {
   member: Member | null
   stats: SeasonStats | undefined
+  rollingScores: RollingScores | undefined
   members: Member[]
   onSelectMember: (m: Member) => void
 }) {
   if (!member) return <div className="empty-state"><p>🥚 회원을 선택해주세요</p></div>
 
+  // 레이더 차트: 롤링 평균 우선, 없으면 현재 시즌 점수
   const scores = {
-    speed: stats?.speed_score || 0,
-    endurance: stats?.endurance_score || 0,
-    longRun: stats?.longrun_score || 0,
-    consistency: stats?.consistency_score || 0,
-    efficiency: stats?.efficiency_score || 0,
+    speed: rollingScores?.speed ?? stats?.speed_score ?? 0,
+    endurance: rollingScores?.endurance ?? stats?.endurance_score ?? 0,
+    longRun: rollingScores?.longRun ?? stats?.longrun_score ?? 0,
+    consistency: rollingScores?.consistency ?? stats?.consistency_score ?? 0,
+    efficiency: rollingScores?.efficiency ?? stats?.efficiency_score ?? 0,
   }
   const expPct = Math.min(member.exp_pct || 0, 100)
 

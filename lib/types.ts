@@ -51,6 +51,20 @@ export type Season = {
   is_current: boolean
 }
 
+/** 최근 3개월 롤링 평균 능력치
+ *  현재 스프린트 시작일 기준 3개월 전 스프린트들의 평균
+ *  안 뛴 시즌은 0점으로 포함 → 자연 감소 반영
+ */
+export type RollingScores = {
+  speed: number
+  endurance: number
+  longRun: number
+  consistency: number
+  efficiency: number
+  activeSeasons: number   // 실제로 뛴 시즌 수
+  totalSeasons: number    // 윈도우 내 전체 시즌 수
+}
+
 export type Challenge = {
   id: string
   season_id: string
