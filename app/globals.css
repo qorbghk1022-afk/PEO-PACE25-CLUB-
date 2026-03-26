@@ -33,15 +33,15 @@ html, body {
 /* 헤더 */
 .app-header {
   background: #000;
-  padding: 6px 16px;
+  height: 70px;
+  overflow: hidden;
   display: flex;
   justify-content: center;
   align-items: center;
 }
 .header-banner {
-  height: 78px;
-  width: auto;
-  max-width: 100%;
+  width: 150%;
+  height: auto;
   object-fit: contain;
 }
 
