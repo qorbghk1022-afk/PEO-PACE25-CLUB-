@@ -34,12 +34,24 @@ html, body {
 .app-header {
   background: #000;
   padding: 10px 16px;
-  color: white;
 }
-.header-logo { display: flex; align-items: center; gap: 10px; }
-.header-logo-img { width: 34px; height: 34px; border-radius: 6px; object-fit: cover; }
-.header-logo h1 { font-size: 20px; font-weight: 900; letter-spacing: 1px; color: #fff; }
-.header-sub { font-size: 11px; opacity: 0.6; letter-spacing: 1px; color: #fff; }
+.header-inner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.header-mark {
+  width: 42px;
+  height: 42px;
+  border-radius: 8px;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+.header-banner {
+  height: 28px;
+  width: auto;
+  object-fit: contain;
+}
 
 /* 탭 네비게이션 */
 .tab-nav {
