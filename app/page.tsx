@@ -103,10 +103,7 @@ export default function Home() {
   return (
     <div className="app">
       <header className="app-header">
-        <div className="header-inner">
-          <img src="/peo-mark.jpg" alt="PEO" className="header-mark" />
-          <img src="/pace25-banner.png" alt="PACE25" className="header-banner" />
-        </div>
+        <img src="/pace25-banner.png" alt="PACE25" className="header-banner" />
       </header>
 
       <nav className="tab-nav">
