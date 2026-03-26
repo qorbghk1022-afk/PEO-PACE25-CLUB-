@@ -42,8 +42,8 @@ function RadarChart({ scores }: { scores: Record<string, number> }) {
         const a = pt((360 / n) * i, r)
         return <line key={i} x1={cx} y1={cy} x2={a.x} y2={a.y} stroke="#e0e0e0" strokeWidth="1" />
       })}
-      <path d={dataPath} fill="rgba(217,119,87,0.2)" stroke="#D97757" strokeWidth="2" />
-      {dataPoints.map((p, i) => <circle key={i} cx={p.x} cy={p.y} r="3" fill="#D97757" />)}
+      <path d={dataPath} fill="rgba(165,28,48,0.15)" stroke="#A51C30" strokeWidth="2" />
+      {dataPoints.map((p, i) => <circle key={i} cx={p.x} cy={p.y} r="3" fill="#A51C30" />)}
       {labels.map((label, i) => {
         const lp = pt((360 / n) * i, r + 16)
         return <text key={i} x={lp.x} y={lp.y} textAnchor="middle" dominantBaseline="middle" fontSize="9" fill="#666">{label}</text>
