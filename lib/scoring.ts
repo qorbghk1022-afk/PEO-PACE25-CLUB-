@@ -49,15 +49,26 @@ export function calcTotalScore(s: {
   return s.speed * 0.3 + s.endurance * 0.25 + s.longRun * 0.15 + s.consistency * 0.2 + s.efficiency * 0.1
 }
 
-/** LV 계산: ROUNDDOWN(100 x (EXP/b)^p)
- *  b=174000: 난이도 파라미터 (스펙 v2.1)
- *  p=0.46:   레벨 상승 곡선 감속 지수
- *  목표: LV10≈2개월 / LV50≈5년 / LV100=이론상 불가
- *  기준: 평균 300 EXP/시즌 (2주 15km 기준)
+/** 페이스 계수 — 로그이차 곡선 (3점 통과)
+ *  3:00/km→1.8 / 6:00/km→1.0(기준) / 11:00/km→0.5
  */
-export function calcLv(totalExp: number, b = 174000, p = 0.46): number {
-  if (totalExp <= 0) return 1
-  return Math.max(1, Math.floor(100 * Math.pow(totalExp / b, p)))
+export function calcPaceCoeff(paceSecPerKm: number): number {
+  if (!paceSecPerKm || paceSecPerKm <= 0) return 1.0
+  const paceMin = paceSecPerKm / 60
+  const x = Math.log(paceMin)
+  const coeff = 0.2534 * x * x - 1.8866 * x + 3.5668
+  return Math.max(0.3, Math.min(2.0, coeff))
+}
+
+/** LV 계산 — 누적 km × 페이스계수 기반 (챌린지 점수와 완전 분리)
+ *  p=0.44, b=19600
+ *  헤비(100km/월, 5:30페이스) 기준: LV10=1개월 / LV50=3년 / LV100=15년
+ *  캐주얼(30km/월, 7:00페이스) 기준: LV10=4개월 / LV100=68년(사실상 불가)
+ */
+export function calcLv(cumKm: number, avgPaceSecPerKm: number, b = 19600, p = 0.44): number {
+  if (cumKm <= 0) return 1
+  const paceAdjKm = cumKm * calcPaceCoeff(avgPaceSecPerKm)
+  return Math.max(1, Math.floor(100 * Math.pow(paceAdjKm / b, p)))
 }
 
 /** 페이스 포맷: 초/km → 'M:SS' */

@@ -52,14 +52,16 @@ async function runRecalc() {
       consistency_score: consistency, efficiency_score: effScore, total_score: total,
     }, { onConflict: 'member_nickname,season_id' })
 
-    const { data: allActs } = await db.from('activities').select('distance_km, date').eq('member_nickname', nick)
+    const { data: allActs } = await db.from('activities').select('distance_km, avg_pace_sec, date').eq('member_nickname', nick)
     const totalDist = (allActs || []).reduce((sum: number, a: { distance_km: number }) => sum + a.distance_km, 0)
     const totalDays = new Set((allActs || []).map((a: { date: string }) => a.date)).size
-    const totalExp = total * 100
-    const lv = calcLv(totalExp)
-    const expPct = (totalExp % 1) * 100
 
-    await db.from('members').update({ total_dist: totalDist, total_days: totalDays, total_exp: totalExp, lv, exp_pct: expPct }).eq('nickname', nick)
+    // LV: 누적 km × 페이스계수 기반 (챌린지 점수와 분리)
+    const paceSecs = (allActs || []).filter((a: { avg_pace_sec: number }) => a.avg_pace_sec > 0).map((a: { avg_pace_sec: number }) => a.avg_pace_sec)
+    const cumAvgPace = paceSecs.length > 0 ? Math.round(paceSecs.reduce((a: number, b: number) => a + b, 0) / paceSecs.length) : 0
+    const lv = calcLv(totalDist, cumAvgPace)
+
+    await db.from('members').update({ total_dist: totalDist, total_days: totalDays, lv }).eq('nickname', nick)
     updated++
   }
 
