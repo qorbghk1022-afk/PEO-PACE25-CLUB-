@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 
-const SYMBOL = '/peo-symbol.png'
+const SYMBOL = '/peo-symbol(new).png'
 const TEXT_LOGO = '/peo-text.png'
 
 export default function LoginPage() {
