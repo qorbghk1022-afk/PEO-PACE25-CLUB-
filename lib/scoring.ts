@@ -31,9 +31,9 @@ export function calcLongRunScore(longestKm: number): number {
   return (longestKm / 15) * 70
 }
 
-/** 꾸준함 점수 — 2주 5일 이상 = 100점 */
+/** 꾸준함 점수 — 2주 기준: 7일(이틀에 한번) = 100점 */
 export function calcConsistencyScore(daysRun: number): number {
-  return Math.min((daysRun / 5) * 100, 100)
+  return Math.min((daysRun / 7) * 100, 100)
 }
 
 /** 효율성 점수 — moving/elapsed: 80%=0점, 100%=100점 */
