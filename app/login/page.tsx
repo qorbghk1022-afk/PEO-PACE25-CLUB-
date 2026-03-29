@@ -7,7 +7,7 @@ type View = 'splash' | 'main' | 'login' | 'signup'
 
 export default function LoginPage() {
   const router = useRouter()
-  const [phase, setPhase] = useState(0)   // 스플래시 애니메이션
+  const [phase, setPhase] = useState(0)
   const [view, setView] = useState<View>('splash')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -67,10 +67,22 @@ export default function LoginPage() {
   }
 
   const isLogin = phase >= 1
+  const showForm = view === 'login' || view === 'signup'
+
+  function goBack() { setView('main'); setError('') }
 
   return (
     <div className="login-wrap">
       <div className={`login-bg-layer ${isLogin ? 'login-bg-visible' : ''}`} />
+
+      {/* 다크 오버레이 */}
+      <div className={`login-overlay ${showForm ? 'overlay-visible' : ''}`} />
+
+      {/* 좌상단 뒤로가기 화살표 */}
+      <button
+        className={`auth-back-arrow ${showForm ? 'arrow-visible' : 'arrow-hidden'}`}
+        onClick={goBack}
+      >←</button>
 
       {/* 로고 */}
       <div className="login-logo-fixed">
@@ -87,18 +99,13 @@ export default function LoginPage() {
       {/* 메인: 로그인 | 회원가입 버튼 */}
       <div className={`login-bottom ${view === 'main' ? 'bottom-visible' : 'bottom-hidden'}`}>
         <div className="login-btns">
-          <button className="login-btn-main" onClick={() => setView('login')}>
-            로그인
-          </button>
-          <button className="login-btn-sub" onClick={() => setView('signup')}>
-            회원가입
-          </button>
+          <button className="login-btn-main" onClick={() => setView('login')}>로그인</button>
+          <button className="login-btn-sub" onClick={() => setView('signup')}>회원가입</button>
         </div>
       </div>
 
       {/* 로그인 폼 */}
-      <div className={`login-bottom ${view === 'login' ? 'bottom-visible' : 'bottom-hidden'}`}>
-        <button className="auth-back" onClick={() => { setView('main'); setError('') }}>← 뒤로</button>
+      <div className={`login-bottom form-panel ${view === 'login' ? 'bottom-visible' : 'bottom-hidden'}`}>
         <p className="auth-title">로그인</p>
         <div className="auth-form">
           <input className="auth-input" type="email" placeholder="이메일"
@@ -113,8 +120,7 @@ export default function LoginPage() {
       </div>
 
       {/* 회원가입 폼 */}
-      <div className={`login-bottom ${view === 'signup' ? 'bottom-visible' : 'bottom-hidden'}`}>
-        <button className="auth-back" onClick={() => { setView('main'); setError('') }}>← 뒤로</button>
+      <div className={`login-bottom form-panel ${view === 'signup' ? 'bottom-visible' : 'bottom-hidden'}`}>
         <p className="auth-title">회원가입</p>
         <div className="auth-form">
           <input className="auth-input" placeholder="닉네임 (기존 크루원은 본인 닉네임)"
