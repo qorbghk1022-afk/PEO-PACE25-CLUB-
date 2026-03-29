@@ -26,10 +26,9 @@ export default function LoginPage() {
           <div className={`egg-scene ${isLogin ? 'sym-hidden' : 'sym-visible'}`}>
             <img src="/peo-egglog-white.png" alt="PEO" className="egg-img" />
           </div>
-          {/* 로그인: #A51C30 알 + 흰 로고 분리 레이어 */}
+          {/* 로그인: peo-egglog-black 직접 표시 */}
           <div className={`egg-scene ${isLogin ? 'sym-visible' : 'sym-hidden'}`}>
-            <div className="egg-colored" />
-            <img src="/peo-real-new-white.png" alt="PEO" className="logo-inside" />
+            <img src="/peo-egglog-black.png" alt="PEO" className="egg-img" />
           </div>
         </div>
       </div>
