@@ -215,6 +215,29 @@ html, body {
   box-sizing: border-box;
 }
 .auth-input:focus { border-color: #111; background: #fff; }
+
+.nickname-row {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+}
+.nickname-input { flex: 1; }
+.nickname-check-btn {
+  padding: 0 16px;
+  background: #111;
+  color: #fff;
+  border: none;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.nickname-msg { font-size: 12px; margin: -4px 0 0 2px; }
+.nickname-ok { color: #2e7d32; }
+.nickname-err { color: #e53935; }
+
 .auth-error {
   color: #e53935;
   font-size: 13px;
