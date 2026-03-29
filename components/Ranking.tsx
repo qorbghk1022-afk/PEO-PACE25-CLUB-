@@ -28,10 +28,10 @@ export default function Ranking({
           return (
             <div key={stats.member_nickname} className="ranking-row" onClick={() => onSelectMember(member)}>
               <div className="rank-num">{MEDALS[i] || `${i + 1}`}</div>
-              <div className="rank-egg">{EGG_EMOJI[member.egg_type] || '🥚'}</div>
+              <div className="rank-lv-badge">LV.{member.lv}</div>
               <div className="rank-info">
                 <div className="rank-name">{stats.member_nickname}</div>
-                <div className="rank-lv">LV.{member.lv}</div>
+                <div className="rank-lv">@{stats.member_nickname}</div>
               </div>
               <div className="rank-scores">
                 <div className="rank-score-main">{stats.total_score.toFixed(1)}점</div>

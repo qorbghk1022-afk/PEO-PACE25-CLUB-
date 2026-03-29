@@ -10,12 +10,15 @@ export function calcSpeedScore(avgPaceSecPerKm: number): number {
   return Math.min(Math.max(((11 - paceMin) / 7.5) * 100, 0), 100)
 }
 
-/** 지구력 점수 — 0~15km:0→75점, 15~30km:75→90점, 30~50km:90→100점 */
+/** 지구력 점수 — 15km(기준 룰) = 50점(평균)
+ *  0km=0, 15km=50, 30km=72, 50km=88, 80km+=100
+ */
 export function calcEnduranceScore(totalDistKm: number): number {
   if (totalDistKm <= 0) return 0
-  if (totalDistKm <= 15) return (totalDistKm / 15) * 75
-  if (totalDistKm <= 30) return 75 + ((totalDistKm - 15) / 15) * 15
-  if (totalDistKm <= 50) return 90 + ((totalDistKm - 30) / 20) * 10
+  if (totalDistKm <= 15) return (totalDistKm / 15) * 50
+  if (totalDistKm <= 30) return 50 + ((totalDistKm - 15) / 15) * 22
+  if (totalDistKm <= 50) return 72 + ((totalDistKm - 30) / 20) * 16
+  if (totalDistKm <= 80) return 88 + ((totalDistKm - 50) / 30) * 12
   return 100
 }
 
@@ -46,10 +49,26 @@ export function calcTotalScore(s: {
   return s.speed * 0.3 + s.endurance * 0.25 + s.longRun * 0.15 + s.consistency * 0.2 + s.efficiency * 0.1
 }
 
-/** LV 계산: ROUNDDOWN(100 x (EXP/b)^p) */
-export function calcLv(totalExp: number, b = 6720, p = 0.72): number {
-  if (totalExp <= 0) return 1
-  return Math.max(1, Math.floor(100 * Math.pow(totalExp / b, p)))
+/** 페이스 계수 — 로그이차 곡선 (3점 통과)
+ *  3:00/km→1.8 / 6:00/km→1.0(기준) / 11:00/km→0.5
+ */
+export function calcPaceCoeff(paceSecPerKm: number): number {
+  if (!paceSecPerKm || paceSecPerKm <= 0) return 1.0
+  const paceMin = paceSecPerKm / 60
+  const x = Math.log(paceMin)
+  const coeff = 0.2534 * x * x - 1.8866 * x + 3.5668
+  return Math.max(0.3, Math.min(2.0, coeff))
+}
+
+/** LV 계산 — 누적 km × 페이스계수 기반 (챌린지 점수와 완전 분리)
+ *  p=0.44, b=19600
+ *  헤비(100km/월, 5:30페이스) 기준: LV10=1개월 / LV50=3년 / LV100=15년
+ *  캐주얼(30km/월, 7:00페이스) 기준: LV10=4개월 / LV100=68년(사실상 불가)
+ */
+export function calcLv(cumKm: number, avgPaceSecPerKm: number, b = 19600, p = 0.44): number {
+  if (cumKm <= 0) return 1
+  const paceAdjKm = cumKm * calcPaceCoeff(avgPaceSecPerKm)
+  return Math.max(1, Math.floor(100 * Math.pow(paceAdjKm / b, p)))
 }
 
 /** 페이스 포맷: 초/km → 'M:SS' */
