@@ -109,16 +109,61 @@ html, body {
   opacity: 1;
   transform: translateY(0);
 }
-.login-start-label {
-  font-size: 22px;
-  font-weight: 900;
-  color: #111;
-  margin-bottom: 4px;
-}
 .login-btns {
   display: flex;
   flex-direction: column;
   gap: 12px;
+}
+
+/* 로그인/회원가입 탭 */
+.auth-tabs {
+  display: flex;
+  border-bottom: 1.5px solid #eee;
+  margin-bottom: 16px;
+}
+.auth-tab {
+  flex: 1;
+  padding: 12px;
+  text-align: center;
+  font-size: 15px;
+  font-weight: 600;
+  color: #bbb;
+  background: none;
+  border: none;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1.5px;
+  font-family: 'Noto Sans KR', sans-serif;
+  transition: all 0.2s;
+}
+.auth-tab.active {
+  color: #111;
+  border-bottom-color: #111;
+}
+
+/* 입력 폼 */
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.auth-input {
+  width: 100%;
+  padding: 16px;
+  border-radius: 12px;
+  border: 1.5px solid #e0e0e0;
+  font-size: 15px;
+  font-family: 'Noto Sans KR', sans-serif;
+  outline: none;
+  background: #fafafa;
+  transition: border-color 0.2s;
+  box-sizing: border-box;
+}
+.auth-input:focus { border-color: #111; background: #fff; }
+.auth-error {
+  color: #e53935;
+  font-size: 13px;
+  text-align: center;
 }
 .login-btn-main {
   width: 100%;

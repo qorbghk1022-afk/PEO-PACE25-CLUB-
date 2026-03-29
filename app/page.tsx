@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase/client'
 import type { Member, SeasonStats, Season, RollingScores } from '@/lib/types'
 import MyPage from '@/components/MyPage'
@@ -11,6 +12,7 @@ import Calendar from '@/components/Calendar'
 const TABS = ['마이페이지', '챌린지보드', '랜킹', '불꽃캘린더'] as const
 
 export default function Home() {
+  const router = useRouter()
   const [activeTab, setActiveTab] = useState<(typeof TABS)[number]>('랜킹')
   const [members, setMembers] = useState<Member[]>([])
   const [seasonStats, setSeasonStats] = useState<SeasonStats[]>([])
@@ -18,12 +20,17 @@ export default function Home() {
   const [selectedMember, setSelectedMember] = useState<Member | null>(null)
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => { loadData() }, [])
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!session) { router.push('/login'); return }
+      loadData(session.user.id)
+    })
+  }, [])
 
-  async function loadData() {
+  async function loadData(userId?: string) {
+
     setLoading(true)
 
-    // 현재 시즌 + 멤버 + 현재 시즌 스탯 병렬 fetch
     const [{ data: membersData }, { data: statsData }, { data: currentSeason }] = await Promise.all([
       supabase.from('members').select('*').eq('is_active', true).order('lv', { ascending: false }),
       supabase.from('member_season_stats').select('*').order('total_score', { ascending: false }),
@@ -33,7 +40,14 @@ export default function Home() {
     const m = (membersData as Member[]) || []
     setMembers(m)
     setSeasonStats((statsData as SeasonStats[]) || [])
-    if (m.length > 0) setSelectedMember(m[0])
+
+    // 로그인한 유저를 기본 선택
+    if (userId) {
+      const mine = m.find((mem: Member) => mem.user_id === userId)
+      setSelectedMember(mine ?? m[0] ?? null)
+    } else if (m.length > 0) {
+      setSelectedMember(m[0])
+    }
 
     // 롤링 평균: 현재 스프린트 시작일 기준 3개월 전 윈도우
     const sprintStart = (currentSeason as Season | null)?.start_date ?? new Date().toISOString().split('T')[0]
