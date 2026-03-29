@@ -92,6 +92,7 @@ export async function GET() {
       longestKm: number
       paceSec: number
       daysRun: number
+      cadenceScore: number
       isCurrent: boolean
     }> = []
 
@@ -108,6 +109,7 @@ export async function GET() {
       const longestKm = parseFloat(row[5]) || 0
       const paceSec = parsePaceToSec(row[6])
       const daysRun = parseInt(row[7]) || 0
+      const cadenceScore = parseFloat(row[15]) || 0  // 케이던스 점수 → efficiency_score로 저장
       const status = (row[18] || '').trim()
       const isCurrent = status === '현재시즌'
 
@@ -119,7 +121,7 @@ export async function GET() {
         isCurrent: (existing?.isCurrent ?? false) || isCurrent,
       })
 
-      parsedRows.push({ nickname, startDate, endDate, distKm, longestKm, paceSec, daysRun, isCurrent })
+      parsedRows.push({ nickname, startDate, endDate, distKm, longestKm, paceSec, daysRun, cadenceScore, isCurrent })
     }
 
     // 기존 is_current 초기화
@@ -162,7 +164,8 @@ export async function GET() {
       const endurance = calcEnduranceScore(row.distKm)
       const longRun = calcLongRunScore(row.longestKm)
       const consistency = calcConsistencyScore(row.daysRun)
-      const total = speed * 0.3 + endurance * 0.25 + longRun * 0.15 + consistency * 0.2
+      const efficiencyScore = row.cadenceScore  // 케이던스 점수를 efficiency_score로 사용
+      const total = speed * 0.3 + endurance * 0.25 + longRun * 0.15 + consistency * 0.2 + efficiencyScore * 0.1
 
       await db.from('member_season_stats').upsert({
         member_nickname: row.nickname,
@@ -176,7 +179,7 @@ export async function GET() {
         endurance_score: endurance,
         longrun_score: longRun,
         consistency_score: consistency,
-        efficiency_score: 0,
+        efficiency_score: efficiencyScore,
         total_score: total,
       }, { onConflict: 'member_nickname,season_id' })
 
