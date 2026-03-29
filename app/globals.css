@@ -57,7 +57,7 @@ html, body {
   opacity: 1;
 }
 
-/* 로고 영역 — 항상 top 38% 고정, 크기 고정 */
+/* 로고 영역 — 항상 top 38% 고정 */
 .login-logo-fixed {
   position: absolute;
   left: 50%;
@@ -65,21 +65,44 @@ html, body {
   transform: translateX(-50%) translateY(-50%);
   z-index: 1;
 }
-.symbol-stack {
+.egg-stack {
   position: relative;
-  width: 200px;
-  height: 200px;
+  width: 260px;
+  height: 260px;
 }
-.login-symbol {
+.egg-scene {
   position: absolute;
   top: 0; left: 0;
-  width: 200px;
-  height: 200px;
-  object-fit: contain;
+  width: 260px;
+  height: 260px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   transition: opacity 0.6s ease;
 }
+.egg-shape {
+  position: absolute;
+  inset: 0;
+  -webkit-mask-image: url('/peo-egg-white.png');
+  mask-image: url('/peo-egg-white.png');
+  -webkit-mask-size: contain;
+  mask-size: contain;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+  mask-position: center;
+}
+.egg-white { background: #ffffff; }
+.egg-red   { background: #A51C30; }
+.logo-inside {
+  position: absolute;
+  width: 150px;
+  height: 150px;
+  object-fit: contain;
+  z-index: 1;
+}
 .sym-visible { opacity: 1; }
-.sym-hidden { opacity: 0; }
+.sym-hidden  { opacity: 0; }
 
 /* 하단 버튼 */
 .login-bottom {
