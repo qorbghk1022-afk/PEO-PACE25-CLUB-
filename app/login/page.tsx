@@ -22,7 +22,7 @@ export default function LoginPage() {
       {/* 스플래시 */}
       {showSplash && (
         <div className={`splash-screen ${splashFading ? 'splash-fade-out' : 'splash-fade-in'}`}>
-          <img src="/peo-mark.jpg" alt="PEO" className="splash-logo" />
+          <img src="/%EC%8B%AC%EB%B3%BC%EB%A1%9C%EA%B3%A0(%EB%B0%B0%EA%B2%BD%EC%A0%9C%EA%B1%B0).png" alt="PEO" className="splash-logo" />
         </div>
       )}
 
@@ -31,7 +31,8 @@ export default function LoginPage() {
         <div className={`login-screen-v2 ${loginVisible ? 'login-fade-in' : ''}`}>
           {/* 상단 로고 영역 */}
           <div className="login-logo-area">
-            <img src="/peo-mark.jpg" alt="PEO" className="login-center-logo" />
+            <img src="/%EC%8B%AC%EB%B3%BC%EB%A1%9C%EA%B3%A0(%EB%B0%B0%EA%B2%BD%EC%A0%9C%EA%B1%B0).png" alt="PEO" className="login-center-logo" />
+            <img src="/%EB%AC%B8%EC%9E%90%EB%A1%9C%EA%B3%A0(%EB%B0%B0%EA%B2%BD%EC%A0%9C%EA%B1%B0).png" alt="PEO" className="login-text-logo" />
           </div>
 
           {/* 하단 버튼 영역 */}
