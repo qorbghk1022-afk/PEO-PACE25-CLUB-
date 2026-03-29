@@ -1,0 +1,39 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { createClient } from '@supabase/supabase-js'
+import crypto from 'crypto'
+
+const KEY = Buffer.from(process.env.ENCRYPTION_KEY!, 'hex') // 32바이트 hex
+
+function encrypt(text: string): string {
+  const iv = crypto.randomBytes(16)
+  const cipher = crypto.createCipheriv('aes-256-gcm', KEY, iv)
+  const enc = Buffer.concat([cipher.update(text, 'utf8'), cipher.final()])
+  const tag = cipher.getAuthTag()
+  return Buffer.concat([iv, tag, enc]).toString('base64')
+}
+
+export async function POST(req: NextRequest) {
+  const { userId, realName, phone, address, privacyAgreed, stravaAgreed } = await req.json()
+
+  if (!userId || !privacyAgreed) {
+    return NextResponse.json({ error: '필수 항목 누락' }, { status: 400 })
+  }
+
+  const admin = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  )
+
+  const { error } = await admin.from('member_profiles').upsert({
+    user_id: userId,
+    real_name: realName || null,
+    phone_enc: phone ? encrypt(phone) : null,
+    address_enc: address ? encrypt(address) : null,
+    privacy_agreed_at: privacyAgreed ? new Date().toISOString() : null,
+    strava_agreed_at: stravaAgreed ? new Date().toISOString() : null,
+    updated_at: new Date().toISOString(),
+  })
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  return NextResponse.json({ ok: true })
+}
