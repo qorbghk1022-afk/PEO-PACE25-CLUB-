@@ -3,12 +3,12 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase/client'
 
-type AuthTab = 'login' | 'signup'
+type View = 'splash' | 'main' | 'login' | 'signup'
 
 export default function LoginPage() {
   const router = useRouter()
-  const [phase, setPhase] = useState(0)
-  const [tab, setTab] = useState<AuthTab>('login')
+  const [phase, setPhase] = useState(0)   // 스플래시 애니메이션
+  const [view, setView] = useState<View>('splash')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [nickname, setNickname] = useState('')
@@ -20,7 +20,7 @@ export default function LoginPage() {
       if (session) router.push('/')
     })
     const t1 = setTimeout(() => setPhase(1), 1600)
-    const t2 = setTimeout(() => setPhase(2), 2200)
+    const t2 = setTimeout(() => { setPhase(2); setView('main') }, 2200)
     return () => { clearTimeout(t1); clearTimeout(t2) }
   }, [])
 
@@ -38,7 +38,6 @@ export default function LoginPage() {
     if (password.length < 6) { setError('비밀번호는 6자 이상이어야 해요'); return }
     setLoading(true); setError('')
 
-    // 닉네임 기존회원 확인
     const { data: existing } = await supabase
       .from('members')
       .select('nickname, user_id')
@@ -58,10 +57,8 @@ export default function LoginPage() {
     if (!userId) { setError('계정 생성에 실패했어요'); setLoading(false); return }
 
     if (existing) {
-      // 기존 크루 → user_id 연결
       await supabase.from('members').update({ user_id: userId }).eq('nickname', nickname)
     } else {
-      // 신규 회원 → 새 row 생성
       await supabase.from('members').insert({ nickname, user_id: userId, egg_type: 'star' })
     }
 
@@ -75,6 +72,7 @@ export default function LoginPage() {
     <div className="login-wrap">
       <div className={`login-bg-layer ${isLogin ? 'login-bg-visible' : ''}`} />
 
+      {/* 로고 */}
       <div className="login-logo-fixed">
         <div className="egg-stack">
           <div className={`egg-scene ${isLogin ? 'sym-hidden' : 'sym-visible'}`}>
@@ -86,48 +84,48 @@ export default function LoginPage() {
         </div>
       </div>
 
-      <div className={`login-bottom ${phase === 2 ? 'bottom-visible' : 'bottom-hidden'}`}>
-        <div className="auth-tabs">
-          <button
-            className={`auth-tab ${tab === 'login' ? 'active' : ''}`}
-            onClick={() => { setTab('login'); setError('') }}
-          >로그인</button>
-          <button
-            className={`auth-tab ${tab === 'signup' ? 'active' : ''}`}
-            onClick={() => { setTab('signup'); setError('') }}
-          >회원가입</button>
+      {/* 메인: 로그인 | 회원가입 버튼 */}
+      <div className={`login-bottom ${view === 'main' ? 'bottom-visible' : 'bottom-hidden'}`}>
+        <div className="login-btns">
+          <button className="login-btn-main" onClick={() => setView('login')}>
+            로그인
+          </button>
+          <button className="login-btn-sub" onClick={() => setView('signup')}>
+            회원가입
+          </button>
         </div>
+      </div>
 
+      {/* 로그인 폼 */}
+      <div className={`login-bottom ${view === 'login' ? 'bottom-visible' : 'bottom-hidden'}`}>
+        <button className="auth-back" onClick={() => { setView('main'); setError('') }}>← 뒤로</button>
+        <p className="auth-title">로그인</p>
         <div className="auth-form">
-          {tab === 'signup' && (
-            <input
-              className="auth-input"
-              placeholder="닉네임 (기존 크루원은 본인 닉네임)"
-              value={nickname}
-              onChange={e => setNickname(e.target.value)}
-            />
-          )}
-          <input
-            className="auth-input"
-            type="email"
-            placeholder="이메일"
-            value={email}
-            onChange={e => setEmail(e.target.value)}
-          />
-          <input
-            className="auth-input"
-            type="password"
-            placeholder="비밀번호"
-            value={password}
-            onChange={e => setPassword(e.target.value)}
-          />
+          <input className="auth-input" type="email" placeholder="이메일"
+            value={email} onChange={e => setEmail(e.target.value)} />
+          <input className="auth-input" type="password" placeholder="비밀번호"
+            value={password} onChange={e => setPassword(e.target.value)} />
           {error && <p className="auth-error">{error}</p>}
-          <button
-            className="login-btn-main"
-            onClick={tab === 'login' ? handleLogin : handleSignup}
-            disabled={loading}
-          >
-            {loading ? '...' : tab === 'login' ? '로그인' : '가입하기'}
+          <button className="login-btn-main" onClick={handleLogin} disabled={loading}>
+            {loading ? '...' : '로그인'}
+          </button>
+        </div>
+      </div>
+
+      {/* 회원가입 폼 */}
+      <div className={`login-bottom ${view === 'signup' ? 'bottom-visible' : 'bottom-hidden'}`}>
+        <button className="auth-back" onClick={() => { setView('main'); setError('') }}>← 뒤로</button>
+        <p className="auth-title">회원가입</p>
+        <div className="auth-form">
+          <input className="auth-input" placeholder="닉네임 (기존 크루원은 본인 닉네임)"
+            value={nickname} onChange={e => setNickname(e.target.value)} />
+          <input className="auth-input" type="email" placeholder="이메일"
+            value={email} onChange={e => setEmail(e.target.value)} />
+          <input className="auth-input" type="password" placeholder="비밀번호 (6자 이상)"
+            value={password} onChange={e => setPassword(e.target.value)} />
+          {error && <p className="auth-error">{error}</p>}
+          <button className="login-btn-main" onClick={handleSignup} disabled={loading}>
+            {loading ? '...' : '가입하기'}
           </button>
         </div>
       </div>

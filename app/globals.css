@@ -141,6 +141,23 @@ html, body {
   border-bottom-color: #111;
 }
 
+.auth-back {
+  background: none;
+  border: none;
+  font-size: 14px;
+  color: #888;
+  cursor: pointer;
+  padding: 0;
+  margin-bottom: 4px;
+  font-family: 'Noto Sans KR', sans-serif;
+}
+.auth-title {
+  font-size: 22px;
+  font-weight: 900;
+  color: #111;
+  margin-bottom: 12px;
+}
+
 /* 입력 폼 */
 .auth-form {
   display: flex;
