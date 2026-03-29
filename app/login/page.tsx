@@ -17,12 +17,24 @@ export default function LoginPage() {
   const router = useRouter()
   const [phase, setPhase] = useState(0)
   const [view, setView] = useState<View>('splash')
+
+  // 로그인 폼
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [passwordConfirm, setPasswordConfirm] = useState('')
+
+  // 회원가입 폼
   const [nickname, setNickname] = useState('')
   const [nicknameChecked, setNicknameChecked] = useState(false)
   const [nicknameMsg, setNicknameMsg] = useState('')
+  const [signupEmail, setSignupEmail] = useState('')
+  const [signupPassword, setSignupPassword] = useState('')
+  const [passwordConfirm, setPasswordConfirm] = useState('')
+  const [realName, setRealName] = useState('')
+  const [phone, setPhone] = useState('')
+  const [address, setAddress] = useState('')
+  const [privacyAgreed, setPrivacyAgreed] = useState(false)
+  const [stravaAgreed, setStravaAgreed] = useState(false)
+
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
@@ -65,10 +77,15 @@ export default function LoginPage() {
 
   async function handleSignup() {
     if (!nicknameChecked) { setError('닉네임 중복확인을 해주세요'); return }
-    if (!email || !password || !passwordConfirm) { setError('모든 항목을 입력해주세요'); return }
-    const pwErr = validatePassword(password)
+    if (!signupEmail || !signupPassword || !passwordConfirm) { setError('모든 항목을 입력해주세요'); return }
+    if (!realName.trim()) { setError('실명을 입력해주세요'); return }
+    if (!phone.trim()) { setError('전화번호를 입력해주세요'); return }
+    if (!address.trim()) { setError('주소를 입력해주세요'); return }
+    if (!privacyAgreed) { setError('개인정보 수집·이용에 동의해주세요'); return }
+    const pwErr = validatePassword(signupPassword)
     if (pwErr) { setError(pwErr); return }
-    if (password !== passwordConfirm) { setError('비밀번호가 일치하지 않아요'); return }
+    if (signupPassword !== passwordConfirm) { setError('비밀번호가 일치하지 않아요'); return }
+
     setLoading(true); setError('')
 
     const { data: existing } = await supabase
@@ -77,17 +94,25 @@ export default function LoginPage() {
       .eq('nickname', nickname.trim())
       .maybeSingle()
 
-    const { data, error: signupError } = await supabase.auth.signUp({ email, password })
+    const { data, error: signupError } = await supabase.auth.signUp({ email: signupEmail, password: signupPassword })
     if (signupError) { setError(signupError.message); setLoading(false); return }
 
     const userId = data.user?.id
     if (!userId) { setError('계정 생성에 실패했어요'); setLoading(false); return }
 
+    // members 테이블 업데이트
     if (existing) {
       await supabase.from('members').update({ user_id: userId }).eq('nickname', nickname.trim())
     } else {
       await supabase.from('members').insert({ nickname: nickname.trim(), user_id: userId, egg_type: 'star' })
     }
+
+    // 개인정보 암호화 저장 (서버 API)
+    await fetch('/api/profile', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId, realName, phone, address, privacyAgreed, stravaAgreed }),
+    })
 
     router.push('/')
     setLoading(false)
@@ -99,7 +124,10 @@ export default function LoginPage() {
   function goBack() {
     setView('main'); setError('')
     setNickname(''); setNicknameChecked(false); setNicknameMsg('')
-    setEmail(''); setPassword(''); setPasswordConfirm('')
+    setEmail(''); setPassword('')
+    setSignupEmail(''); setSignupPassword(''); setPasswordConfirm('')
+    setRealName(''); setPhone(''); setAddress('')
+    setPrivacyAgreed(false); setStravaAgreed(false)
   }
 
   return (
@@ -151,9 +179,10 @@ export default function LoginPage() {
       </div>
 
       {/* 회원가입 폼 */}
-      <div className={`login-bottom form-panel ${view === 'signup' ? 'bottom-visible' : 'bottom-hidden'}`}>
+      <div className={`login-bottom form-panel signup-panel ${view === 'signup' ? 'bottom-visible' : 'bottom-hidden'}`}>
         <p className="auth-title">회원가입</p>
         <div className="auth-form">
+          {/* 닉네임 */}
           <div className="nickname-row">
             <input className="auth-input nickname-input" placeholder="닉네임 (기존 크루원은 본인 닉네임)"
               value={nickname} onChange={e => { setNickname(e.target.value); setNicknameChecked(false); setNicknameMsg('') }} />
@@ -162,12 +191,41 @@ export default function LoginPage() {
           {nicknameMsg && (
             <p className={`nickname-msg ${nicknameChecked ? 'nickname-ok' : 'nickname-err'}`}>{nicknameMsg}</p>
           )}
+
+          {/* 실명 */}
+          <input className="auth-input" placeholder="실명"
+            value={realName} onChange={e => setRealName(e.target.value)} />
+
+          {/* 이메일 */}
           <input className="auth-input" type="email" placeholder="이메일"
-            value={email} onChange={e => setEmail(e.target.value)} />
-          <input className="auth-input" type="password" placeholder="비밀번호 (8자↑, 영문소문자·숫자·특수문자 포함)"
-            value={password} onChange={e => setPassword(e.target.value)} />
+            value={signupEmail} onChange={e => setSignupEmail(e.target.value)} />
+
+          {/* 비밀번호 */}
+          <input className="auth-input" type="password" placeholder="비밀번호 (8자↑, 소문자·숫자·특수문자)"
+            value={signupPassword} onChange={e => setSignupPassword(e.target.value)} />
           <input className="auth-input" type="password" placeholder="비밀번호 확인"
             value={passwordConfirm} onChange={e => setPasswordConfirm(e.target.value)} />
+
+          {/* 전화번호 */}
+          <input className="auth-input" type="tel" placeholder="전화번호 (010-0000-0000)"
+            value={phone} onChange={e => setPhone(e.target.value)} />
+
+          {/* 주소 */}
+          <input className="auth-input" placeholder="주소 (배송지)"
+            value={address} onChange={e => setAddress(e.target.value)} />
+
+          {/* 동의 체크박스 */}
+          <div className="consent-box">
+            <label className="consent-row">
+              <input type="checkbox" checked={privacyAgreed} onChange={e => setPrivacyAgreed(e.target.checked)} />
+              <span>[필수] 개인정보 수집·이용 동의 (실명, 전화, 주소 — 협찬 배송 목적)</span>
+            </label>
+            <label className="consent-row">
+              <input type="checkbox" checked={stravaAgreed} onChange={e => setStravaAgreed(e.target.checked)} />
+              <span>[선택] 스트라바 활동 데이터 연동 동의 (점수 산출 목적)</span>
+            </label>
+          </div>
+
           {error && <p className="auth-error">{error}</p>}
           <button className="login-btn-main" onClick={handleSignup} disabled={loading}>
             {loading ? '...' : '가입하기'}
