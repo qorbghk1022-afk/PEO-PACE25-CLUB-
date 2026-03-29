@@ -2,8 +2,8 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 
-const SYMBOL = '/%EC%8B%AC%EB%B3%BC%EB%A1%9C%EA%B3%A0(%EB%B0%B0%EA%B2%BD%EC%A0%9C%EA%B1%B0).png'
-const TEXT_LOGO = '/%EB%AC%B8%EC%9E%90%EB%A1%9C%EA%B3%A0(%EB%B0%B0%EA%B2%BD%EC%A0%9C%EA%B1%B0).png'
+const SYMBOL = '/peo-symbol.png'
+const TEXT_LOGO = '/peo-text.png'
 
 export default function LoginPage() {
   const router = useRouter()
