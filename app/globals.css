@@ -111,8 +111,14 @@ html, body {
 }
 .login-btns {
   display: flex;
-  flex-direction: column;
-  gap: 12px;
+  flex-direction: row;
+  gap: 10px;
+}
+.login-btns .login-btn-main,
+.login-btns .login-btn-sub {
+  flex: 1;
+  padding: 12px 8px;
+  font-size: 14px;
 }
 
 /* 로그인/회원가입 탭 */
