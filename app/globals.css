@@ -58,10 +58,9 @@ html, body {
   animation: fadeOut 0.6s ease forwards;
 }
 .splash-logo {
-  width: 120px;
-  height: 120px;
-  border-radius: 50%;
-  object-fit: cover;
+  width: 180px;
+  height: 180px;
+  object-fit: contain;
 }
 
 /* 로그인 화면 */
@@ -80,15 +79,20 @@ html, body {
 .login-logo-area {
   flex: 1;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: 0;
 }
 .login-center-logo {
-  width: 140px;
-  height: 140px;
-  border-radius: 50%;
-  object-fit: cover;
-  box-shadow: 0 8px 40px rgba(165,28,48,0.15);
+  width: 100px;
+  height: 100px;
+  object-fit: contain;
+}
+.login-text-logo {
+  width: 180px;
+  object-fit: contain;
+  margin-top: 12px;
 }
 .login-bottom {
   padding: 0 28px;
