@@ -80,29 +80,25 @@ html, body {
   justify-content: center;
   transition: opacity 0.6s ease;
 }
-.egg-shape {
-  position: absolute;
-  inset: 0;
-  -webkit-mask-image: url('/peo-egg-white.png');
-  mask-image: url('/peo-egg-white.png');
+/* 스플래시: 이미지 직접 */
+.egg-img {
+  width: 320px;
+  height: 320px;
+  object-fit: contain;
+}
+/* 로그인: peo-egglog-black 마스크 + #A51C30 색상 */
+.egg-colored {
+  width: 320px;
+  height: 320px;
+  background: #A51C30;
+  -webkit-mask-image: url('/peo-egglog-black.png');
+  mask-image: url('/peo-egglog-black.png');
   -webkit-mask-size: contain;
   mask-size: contain;
   -webkit-mask-repeat: no-repeat;
   mask-repeat: no-repeat;
   -webkit-mask-position: center;
   mask-position: center;
-}
-.egg-white { background: #ffffff; }
-.egg-red   { background: #A51C30; }
-.logo-inside {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  width: 160px;
-  height: 160px;
-  object-fit: contain;
-  z-index: 1;
 }
 .sym-visible { opacity: 1; }
 .sym-hidden  { opacity: 0; }
