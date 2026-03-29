@@ -57,42 +57,29 @@ html, body {
   opacity: 1;
 }
 
-/* 로고 영역 — 항상 화면 중앙 */
+/* 로고 영역 — 항상 top 38% 고정, 크기 고정 */
 .login-logo-fixed {
   position: absolute;
   left: 50%;
-  top: 32%;
+  top: 38%;
   transform: translateX(-50%) translateY(-50%);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
   z-index: 1;
-  transition: top 0.6s cubic-bezier(0.4,0,0.2,1);
 }
-.logo-large .login-symbol {
-  width: 240px;
-  height: 240px;
-  transition: all 0.6s cubic-bezier(0.4,0,0.2,1);
-}
-.logo-small {
-  top: 28%;
-}
-.logo-small .login-symbol {
-  width: 110px;
-  height: 110px;
-  transition: all 0.6s cubic-bezier(0.4,0,0.2,1);
+.symbol-stack {
+  position: relative;
+  width: 200px;
+  height: 200px;
 }
 .login-symbol {
+  position: absolute;
+  top: 0; left: 0;
+  width: 200px;
+  height: 200px;
   object-fit: contain;
+  transition: opacity 0.6s ease;
 }
-.login-text-logo {
-  width: 160px;
-  object-fit: contain;
-  margin-top: 10px;
-  transition: opacity 0.4s ease;
-}
-.text-hidden { opacity: 0; }
-.text-visible { opacity: 1; }
+.sym-visible { opacity: 1; }
+.sym-hidden { opacity: 0; }
 
 /* 하단 버튼 */
 .login-bottom {
