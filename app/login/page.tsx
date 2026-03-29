@@ -22,15 +22,13 @@ export default function LoginPage() {
       {/* 로고 영역 */}
       <div className="login-logo-fixed">
         <div className="egg-stack">
-          {/* 스플래시: 흰 알 + 검정 로고 */}
+          {/* 스플래시: peo-egglog-white 직접 표시 */}
           <div className={`egg-scene ${isLogin ? 'sym-hidden' : 'sym-visible'}`}>
-            <div className="egg-shape egg-white" />
-            <img src="/peo-real-new-black.png" alt="PEO" className="logo-inside" />
+            <img src="/peo-egglog-white.png" alt="PEO" className="egg-img" />
           </div>
-          {/* 로그인: 빨간 알 + 흰 로고 */}
+          {/* 로그인: peo-egglog-black을 마스크로 #A51C30 색상 */}
           <div className={`egg-scene ${isLogin ? 'sym-visible' : 'sym-hidden'}`}>
-            <div className="egg-shape egg-red" />
-            <img src="/peo-real-new-white.png" alt="PEO" className="logo-inside" />
+            <div className="egg-colored" />
           </div>
         </div>
       </div>
