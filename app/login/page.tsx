@@ -5,13 +5,24 @@ import { supabase } from '@/lib/supabase/client'
 
 type View = 'splash' | 'main' | 'login' | 'signup'
 
+function validatePassword(pw: string) {
+  if (pw.length < 8) return '비밀번호는 8자 이상이어야 해요'
+  if (!/[a-z]/.test(pw)) return '소문자 영문을 포함해야 해요'
+  if (!/[0-9]/.test(pw)) return '숫자를 포함해야 해요'
+  if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(pw)) return '특수문자를 포함해야 해요'
+  return null
+}
+
 export default function LoginPage() {
   const router = useRouter()
   const [phase, setPhase] = useState(0)
   const [view, setView] = useState<View>('splash')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [passwordConfirm, setPasswordConfirm] = useState('')
   const [nickname, setNickname] = useState('')
+  const [nicknameChecked, setNicknameChecked] = useState(false)
+  const [nicknameMsg, setNicknameMsg] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
@@ -33,22 +44,38 @@ export default function LoginPage() {
     setLoading(false)
   }
 
+  async function checkNickname() {
+    if (!nickname.trim()) { setNicknameMsg('닉네임을 입력해주세요'); return }
+    const { data } = await supabase
+      .from('members')
+      .select('nickname, user_id')
+      .eq('nickname', nickname.trim())
+      .maybeSingle()
+    if (!data) {
+      setNicknameMsg('✓ 사용 가능한 닉네임이에요 (신규 가입)')
+      setNicknameChecked(true)
+    } else if (data.user_id) {
+      setNicknameMsg('✗ 이미 가입된 닉네임이에요')
+      setNicknameChecked(false)
+    } else {
+      setNicknameMsg('✓ 기존 크루원으로 확인됐어요')
+      setNicknameChecked(true)
+    }
+  }
+
   async function handleSignup() {
-    if (!nickname || !email || !password) { setError('모든 항목을 입력해주세요'); return }
-    if (password.length < 6) { setError('비밀번호는 6자 이상이어야 해요'); return }
+    if (!nicknameChecked) { setError('닉네임 중복확인을 해주세요'); return }
+    if (!email || !password || !passwordConfirm) { setError('모든 항목을 입력해주세요'); return }
+    const pwErr = validatePassword(password)
+    if (pwErr) { setError(pwErr); return }
+    if (password !== passwordConfirm) { setError('비밀번호가 일치하지 않아요'); return }
     setLoading(true); setError('')
 
     const { data: existing } = await supabase
       .from('members')
       .select('nickname, user_id')
-      .eq('nickname', nickname)
+      .eq('nickname', nickname.trim())
       .maybeSingle()
-
-    if (existing?.user_id) {
-      setError('이미 가입된 닉네임이에요')
-      setLoading(false)
-      return
-    }
 
     const { data, error: signupError } = await supabase.auth.signUp({ email, password })
     if (signupError) { setError(signupError.message); setLoading(false); return }
@@ -57,9 +84,9 @@ export default function LoginPage() {
     if (!userId) { setError('계정 생성에 실패했어요'); setLoading(false); return }
 
     if (existing) {
-      await supabase.from('members').update({ user_id: userId }).eq('nickname', nickname)
+      await supabase.from('members').update({ user_id: userId }).eq('nickname', nickname.trim())
     } else {
-      await supabase.from('members').insert({ nickname, user_id: userId, egg_type: 'star' })
+      await supabase.from('members').insert({ nickname: nickname.trim(), user_id: userId, egg_type: 'star' })
     }
 
     router.push('/')
@@ -69,7 +96,11 @@ export default function LoginPage() {
   const isLogin = phase >= 1
   const showForm = view === 'login' || view === 'signup'
 
-  function goBack() { setView('main'); setError('') }
+  function goBack() {
+    setView('main'); setError('')
+    setNickname(''); setNicknameChecked(false); setNicknameMsg('')
+    setEmail(''); setPassword(''); setPasswordConfirm('')
+  }
 
   return (
     <div className="login-wrap">
@@ -123,12 +154,20 @@ export default function LoginPage() {
       <div className={`login-bottom form-panel ${view === 'signup' ? 'bottom-visible' : 'bottom-hidden'}`}>
         <p className="auth-title">회원가입</p>
         <div className="auth-form">
-          <input className="auth-input" placeholder="닉네임 (기존 크루원은 본인 닉네임)"
-            value={nickname} onChange={e => setNickname(e.target.value)} />
+          <div className="nickname-row">
+            <input className="auth-input nickname-input" placeholder="닉네임 (기존 크루원은 본인 닉네임)"
+              value={nickname} onChange={e => { setNickname(e.target.value); setNicknameChecked(false); setNicknameMsg('') }} />
+            <button className="nickname-check-btn" onClick={checkNickname} type="button">중복확인</button>
+          </div>
+          {nicknameMsg && (
+            <p className={`nickname-msg ${nicknameChecked ? 'nickname-ok' : 'nickname-err'}`}>{nicknameMsg}</p>
+          )}
           <input className="auth-input" type="email" placeholder="이메일"
             value={email} onChange={e => setEmail(e.target.value)} />
-          <input className="auth-input" type="password" placeholder="비밀번호 (6자 이상)"
+          <input className="auth-input" type="password" placeholder="비밀번호 (8자↑, 영문소문자·숫자·특수문자 포함)"
             value={password} onChange={e => setPassword(e.target.value)} />
+          <input className="auth-input" type="password" placeholder="비밀번호 확인"
+            value={passwordConfirm} onChange={e => setPasswordConfirm(e.target.value)} />
           {error && <p className="auth-error">{error}</p>}
           <button className="login-btn-main" onClick={handleSignup} disabled={loading}>
             {loading ? '...' : '가입하기'}
