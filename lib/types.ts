@@ -1,5 +1,6 @@
 export type Member = {
   id: string
+  user_id: string | null
   nickname: string
   realname: string | null
   egg_type: string
