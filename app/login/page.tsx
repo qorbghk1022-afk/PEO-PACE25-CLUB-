@@ -2,7 +2,8 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 
-const SYMBOL = '/peo-symbol(whnew).png'
+const SYMBOL_WHITE = '/peo-real-new-white.png'
+const SYMBOL_BLACK = '/peo-real-new-black.png'
 
 export default function LoginPage() {
   const router = useRouter()
@@ -10,8 +11,8 @@ export default function LoginPage() {
   const [phase, setPhase] = useState(0)
 
   useEffect(() => {
-    const t1 = setTimeout(() => setPhase(1), 1600) // 전환 시작
-    const t2 = setTimeout(() => setPhase(2), 2200) // 로그인 완전 표시
+    const t1 = setTimeout(() => setPhase(1), 1600)
+    const t2 = setTimeout(() => setPhase(2), 2200)
     return () => { clearTimeout(t1); clearTimeout(t2) }
   }, [])
 
@@ -19,12 +20,15 @@ export default function LoginPage() {
 
   return (
     <div className="login-wrap">
-      {/* 배경: 스플래시=검정, 로그인=그라데이션 */}
+      {/* 배경: 스플래시=검정, 로그인=흰색 */}
       <div className={`login-bg-layer ${isLogin ? 'login-bg-visible' : ''}`} />
 
-      {/* 로고 영역 — 항상 같은 위치/크기 */}
+      {/* 로고 영역 — 같은 위치/크기, 크로스페이드 */}
       <div className="login-logo-fixed">
-        <img src={SYMBOL} alt="PEO" className="login-symbol" />
+        <div className="symbol-stack">
+          <img src={SYMBOL_WHITE} alt="PEO" className={`login-symbol ${isLogin ? 'sym-hidden' : 'sym-visible'}`} />
+          <img src={SYMBOL_BLACK} alt="PEO" className={`login-symbol ${isLogin ? 'sym-visible' : 'sym-hidden'}`} />
+        </div>
       </div>
 
       {/* 하단 버튼: 로그인 단계에서만 등장 */}
