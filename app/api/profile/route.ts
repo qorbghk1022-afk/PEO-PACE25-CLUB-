@@ -2,11 +2,10 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import crypto from 'crypto'
 
-const KEY = Buffer.from(process.env.ENCRYPTION_KEY!, 'hex') // 32바이트 hex
-
 function encrypt(text: string): string {
+  const key = Buffer.from(process.env.ENCRYPTION_KEY!, 'hex')
   const iv = crypto.randomBytes(16)
-  const cipher = crypto.createCipheriv('aes-256-gcm', KEY, iv)
+  const cipher = crypto.createCipheriv('aes-256-gcm', key, iv)
   const enc = Buffer.concat([cipher.update(text, 'utf8'), cipher.final()])
   const tag = cipher.getAuthTag()
   return Buffer.concat([iv, tag, enc]).toString('base64')
