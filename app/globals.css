@@ -31,7 +31,122 @@ html, body {
 }
 
 /* 로그인 화면 */
-.login-screen {
+.login-wrap {
+  width: 100%;
+  max-width: 480px;
+  margin: 0 auto;
+  min-height: 100vh;
+  position: relative;
+}
+
+/* 스플래시 */
+.splash-screen {
+  position: fixed;
+  inset: 0;
+  max-width: 480px;
+  margin: 0 auto;
+  background: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+.splash-fade-in {
+  animation: fadeIn 0.6s ease forwards;
+}
+.splash-fade-out {
+  animation: fadeOut 0.6s ease forwards;
+}
+.splash-logo {
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+/* 로그인 화면 */
+.login-screen-v2 {
+  min-height: 100vh;
+  background: linear-gradient(160deg, #fdf0f2 0%, #f7d6db 50%, #f0c4cb 100%);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 0 0 48px 0;
+  opacity: 0;
+}
+.login-fade-in {
+  animation: fadeIn 0.5s ease forwards;
+}
+.login-logo-area {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.login-center-logo {
+  width: 140px;
+  height: 140px;
+  border-radius: 50%;
+  object-fit: cover;
+  box-shadow: 0 8px 40px rgba(165,28,48,0.15);
+}
+.login-bottom {
+  padding: 0 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.login-start-label {
+  font-size: 22px;
+  font-weight: 900;
+  color: #111;
+  margin-bottom: 4px;
+}
+.login-btns {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.login-btn-main {
+  width: 100%;
+  padding: 18px;
+  border-radius: 999px;
+  background: #111;
+  color: #fff;
+  font-size: 16px;
+  font-weight: 700;
+  border: none;
+  cursor: pointer;
+  letter-spacing: 0.02em;
+  transition: opacity 0.2s;
+}
+.login-btn-main:hover { opacity: 0.85; }
+.login-btn-sub {
+  width: 100%;
+  padding: 18px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.7);
+  color: #111;
+  font-size: 16px;
+  font-weight: 700;
+  border: 1.5px solid rgba(0,0,0,0.12);
+  cursor: pointer;
+  letter-spacing: 0.02em;
+  transition: all 0.2s;
+  backdrop-filter: blur(8px);
+}
+.login-btn-sub:hover { background: rgba(255,255,255,0.9); }
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes fadeOut {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+/* 헤더 */
   position: relative;
   width: 100%;
   min-height: 100vh;
