@@ -149,16 +149,46 @@ html, body {
   border-bottom-color: #111;
 }
 
-.auth-back {
+/* 다크 오버레이 */
+.login-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 2;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+.overlay-visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* 좌상단 뒤로가기 화살표 */
+.auth-back-arrow {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  z-index: 10;
   background: none;
   border: none;
-  font-size: 14px;
-  color: #888;
+  font-size: 24px;
+  color: #fff;
   cursor: pointer;
-  padding: 0;
-  margin-bottom: 4px;
-  font-family: 'Noto Sans KR', sans-serif;
+  padding: 4px 8px;
+  transition: opacity 0.3s ease;
 }
+.arrow-visible { opacity: 1; }
+.arrow-hidden  { opacity: 0; pointer-events: none; }
+
+/* 폼 패널: 오버레이 위로 */
+.form-panel {
+  z-index: 3;
+  background: #fff;
+  border-radius: 24px 24px 0 0;
+  padding-top: 28px;
+}
+
 .auth-title {
   font-size: 22px;
   font-weight: 900;
