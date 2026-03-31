@@ -1,5 +1,8 @@
 'use client'
 
+import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
+import { supabase } from '@/lib/supabase/client'
 import type { Member, SeasonStats, RollingScores } from '@/lib/types'
 import { formatPace, formatDist } from '@/lib/scoring'
 
@@ -53,17 +56,71 @@ function RadarChart({ scores }: { scores: Record<string, number> }) {
 }
 
 export default function MyPage({
-  member, stats, rollingScores, members, onSelectMember
+  member, stats, rollingScores, members, onSelectMember, currentUserId
 }: {
   member: Member | null
   stats: SeasonStats | undefined
   rollingScores: RollingScores | undefined
   members: Member[]
   onSelectMember: (m: Member) => void
+  currentUserId: string | null
 }) {
+  const router = useRouter()
+  const isMyProfile = member?.user_id === currentUserId
+
+  // 내 정보
+  const [profile, setProfile] = useState<{ real_name: string; phone: string; address: string } | null>(null)
+  const [editingNickname, setEditingNickname] = useState(false)
+  const [newNickname, setNewNickname] = useState('')
+  const [nicknameMsg, setNicknameMsg] = useState('')
+  const [savingNickname, setSavingNickname] = useState(false)
+
+  // 탈퇴 확인
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+
+  useEffect(() => {
+    if (isMyProfile && currentUserId) {
+      fetch(`/api/profile/get?userId=${currentUserId}`)
+        .then(r => r.json())
+        .then(setProfile)
+    }
+  }, [isMyProfile, currentUserId])
+
+  async function handleLogout() {
+    await supabase.auth.signOut()
+    router.push('/login')
+  }
+
+  async function handleDeleteAccount() {
+    if (!currentUserId) return
+    setDeleting(true)
+    await fetch('/api/delete-account', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId: currentUserId }),
+    })
+    await supabase.auth.signOut()
+    router.push('/login')
+  }
+
+  async function handleNicknameSave() {
+    if (!newNickname.trim() || !member) return
+    setSavingNickname(true)
+    const { data: existing } = await supabase
+      .from('members').select('nickname').eq('nickname', newNickname.trim()).maybeSingle()
+    if (existing) { setNicknameMsg('이미 사용 중인 닉네임이에요'); setSavingNickname(false); return }
+    const { error } = await supabase
+      .from('members').update({ nickname: newNickname.trim() }).eq('nickname', member.nickname)
+    if (error) { setNicknameMsg('저장 실패'); setSavingNickname(false); return }
+    setNicknameMsg('저장됐어요')
+    setEditingNickname(false)
+    setSavingNickname(false)
+    window.location.reload()
+  }
+
   if (!member) return <div className="empty-state"><p>🥚 회원을 선택해주세요</p></div>
 
-  // 레이더 차트: 롤링 평균 우선, 없으면 현재 시즌 점수
   const scores = {
     speed: rollingScores?.speed ?? stats?.speed_score ?? 0,
     endurance: rollingScores?.endurance ?? stats?.endurance_score ?? 0,
@@ -141,6 +198,99 @@ export default function MyPage({
             <div className="stat-box"><div className="stat-box-val">{formatDist(stats.longest_run_km)}</div><div className="stat-box-label">최장거리</div></div>
             <div className="stat-box"><div className="stat-box-val">{formatPace(stats.avg_pace_sec)}</div><div className="stat-box-label">평균 페이스</div></div>
             <div className="stat-box"><div className="stat-box-val">{stats.days_run}일</div><div className="stat-box-label">러닝일수</div></div>
+          </div>
+        </div>
+      )}
+
+      {/* 내 계정 설정 - 본인만 보임 */}
+      {isMyProfile && (
+        <div className="settings-section">
+
+          {/* 내 정보 */}
+          <div className="settings-card">
+            <div className="settings-card-header">
+              <span className="settings-card-title">내 정보</span>
+              {!editingNickname && (
+                <button className="settings-edit-btn" onClick={() => { setEditingNickname(true); setNewNickname(member.nickname); setNicknameMsg('') }}>
+                  수정
+                </button>
+              )}
+            </div>
+            <div className="info-rows">
+              <div className="info-row">
+                <span className="info-label">이메일</span>
+                <span className="info-value">{member.user_id ? '불러오는 중...' : '-'}</span>
+              </div>
+              <div className="info-row">
+                <span className="info-label">닉네임</span>
+                {editingNickname ? (
+                  <div className="nickname-edit-row">
+                    <input className="info-input" value={newNickname} onChange={e => { setNewNickname(e.target.value); setNicknameMsg('') }} />
+                    <button className="info-save-btn" onClick={handleNicknameSave} disabled={savingNickname}>저장</button>
+                    <button className="info-cancel-btn" onClick={() => { setEditingNickname(false); setNicknameMsg('') }}>취소</button>
+                  </div>
+                ) : (
+                  <span className="info-value">{member.nickname}</span>
+                )}
+              </div>
+              {nicknameMsg && <p className="info-msg">{nicknameMsg}</p>}
+              <div className="info-row">
+                <span className="info-label">실명</span>
+                <span className="info-value">{profile?.real_name || '-'}</span>
+              </div>
+              <div className="info-row">
+                <span className="info-label">전화번호</span>
+                <span className="info-value">{profile?.phone || '-'}</span>
+              </div>
+              <div className="info-row">
+                <span className="info-label">주소</span>
+                <span className="info-value info-address">{profile?.address || '-'}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* 약관 */}
+          <div className="settings-card settings-links">
+            <a href="/policy/terms" className="settings-link-row">
+              <span>서비스 이용약관</span>
+              <span className="settings-chevron">›</span>
+            </a>
+            <a href="/policy/privacy" className="settings-link-row">
+              <span>개인정보 처리방침</span>
+              <span className="settings-chevron">›</span>
+            </a>
+            <a href="/policy/all" className="settings-link-row">
+              <span>이용 약관 및 방침</span>
+              <span className="settings-chevron">›</span>
+            </a>
+          </div>
+
+          {/* 로그아웃 / 탈퇴 */}
+          <div className="settings-card settings-links">
+            <button className="settings-link-row logout-btn" onClick={handleLogout}>
+              <span>로그아웃</span>
+              <span className="settings-chevron">›</span>
+            </button>
+            <button className="settings-link-row delete-btn" onClick={() => setShowDeleteConfirm(true)}>
+              <span>회원탈퇴</span>
+              <span className="settings-chevron">›</span>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* 탈퇴 확인 모달 */}
+      {showDeleteConfirm && (
+        <div className="modal-overlay" onClick={() => setShowDeleteConfirm(false)}>
+          <div className="modal-box" onClick={e => e.stopPropagation()}>
+            <p className="modal-title">정말 탈퇴할까요?</p>
+            <p className="modal-desc">탈퇴 시 모든 개인정보가 삭제돼요. 러닝 기록은 유지돼요.</p>
+            <div className="modal-btns">
+              <button className="modal-cancel" onClick={() => setShowDeleteConfirm(false)}>취소</button>
+              <button className="modal-confirm" onClick={handleDeleteAccount} disabled={deleting}>
+                {deleting ? '처리 중...' : '탈퇴하기'}
+              </button>
+            </div>
           </div>
         </div>
       )}
