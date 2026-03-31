@@ -55,6 +55,11 @@ export default function LoginPage() {
   const [nicknameChecked, setNicknameChecked] = useState(false)
   const [nicknameMsg, setNicknameMsg] = useState('')
   const [signupEmail, setSignupEmail] = useState('')
+  const [emailVerified, setEmailVerified] = useState(false)
+  const [otpSent, setOtpSent] = useState(false)
+  const [otpCode, setOtpCode] = useState('')
+  const [otpLoading, setOtpLoading] = useState(false)
+  const [otpMsg, setOtpMsg] = useState('')
   const [signupPassword, setSignupPassword] = useState('')
   const [passwordConfirm, setPasswordConfirm] = useState('')
   const [showSignupPw, setShowSignupPw] = useState(false)
@@ -69,7 +74,6 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
-  // 카카오 우편번호 스크립트 로드
   useEffect(() => {
     const script = document.createElement('script')
     script.src = 'https://t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js'
@@ -132,9 +136,46 @@ export default function LoginPage() {
     }
   }
 
+  // 이메일로 인증코드 발송
+  async function sendOtp() {
+    if (!signupEmail) { setOtpMsg('이메일을 입력해주세요'); return }
+    setOtpLoading(true); setOtpMsg('')
+    const { error } = await supabase.auth.signInWithOtp({
+      email: signupEmail,
+      options: { shouldCreateUser: true },
+    })
+    if (error) {
+      setOtpMsg('인증코드 발송에 실패했어요')
+    } else {
+      setOtpSent(true)
+      setOtpMsg('인증코드를 이메일로 발송했어요')
+    }
+    setOtpLoading(false)
+  }
+
+  // 인증코드 확인
+  async function verifyOtp() {
+    if (!otpCode || otpCode.length !== 6) { setOtpMsg('6자리 코드를 입력해주세요'); return }
+    setOtpLoading(true)
+    const { error } = await supabase.auth.verifyOtp({
+      email: signupEmail,
+      token: otpCode,
+      type: 'email',
+    })
+    if (error) {
+      setOtpMsg('✗ 인증코드가 틀렸어요')
+      setOtpLoading(false)
+      return
+    }
+    setEmailVerified(true)
+    setOtpMsg('✓ 이메일 인증 완료')
+    setOtpLoading(false)
+  }
+
   async function handleSignup() {
     if (!nicknameChecked) { setError('닉네임 중복확인을 해주세요'); return }
-    if (!signupEmail || !signupPassword || !passwordConfirm) { setError('모든 항목을 입력해주세요'); return }
+    if (!emailVerified) { setError('이메일 인증을 완료해주세요'); return }
+    if (!signupPassword || !passwordConfirm) { setError('비밀번호를 입력해주세요'); return }
     if (!realName.trim()) { setError('실명을 입력해주세요'); return }
     if (!phone.trim()) { setError('전화번호를 입력해주세요'); return }
     if (!address.trim()) { setError('주소를 검색해주세요'); return }
@@ -146,17 +187,18 @@ export default function LoginPage() {
 
     setLoading(true); setError('')
 
+    // OTP로 이미 로그인된 상태 → 비밀번호 설정
+    const { data: { user }, error: updateErr } = await supabase.auth.updateUser({ password: signupPassword })
+    if (updateErr) { setError(updateErr.message); setLoading(false); return }
+
+    const userId = user?.id
+    if (!userId) { setError('계정 정보를 가져올 수 없어요'); setLoading(false); return }
+
     const { data: existing } = await supabase
       .from('members')
       .select('nickname, user_id')
       .eq('nickname', nickname.trim())
       .maybeSingle()
-
-    const { data, error: signupError } = await supabase.auth.signUp({ email: signupEmail, password: signupPassword })
-    if (signupError) { setError(signupError.message); setLoading(false); return }
-
-    const userId = data.user?.id
-    if (!userId) { setError('계정 생성에 실패했어요'); setLoading(false); return }
 
     if (existing) {
       await supabase.from('members').update({ user_id: userId }).eq('nickname', nickname.trim())
@@ -183,7 +225,8 @@ export default function LoginPage() {
     setView('main'); setError('')
     setNickname(''); setNicknameChecked(false); setNicknameMsg('')
     setEmail(''); setPassword('')
-    setSignupEmail(''); setSignupPassword(''); setPasswordConfirm('')
+    setSignupEmail(''); setEmailVerified(false); setOtpSent(false); setOtpCode(''); setOtpMsg('')
+    setSignupPassword(''); setPasswordConfirm('')
     setRealName(''); setPhone(''); setAddress(''); setAddressDetail('')
     setPrivacyAgreed(false); setStravaAgreed(false)
   }
@@ -256,9 +299,28 @@ export default function LoginPage() {
           <input className="auth-input" placeholder="실명"
             value={realName} onChange={e => setRealName(e.target.value)} />
 
-          {/* 이메일 */}
-          <input className="auth-input" type="email" placeholder="이메일"
-            value={signupEmail} onChange={e => setSignupEmail(e.target.value)} />
+          {/* 이메일 + 인증 */}
+          <div className="nickname-row">
+            <input className="auth-input nickname-input" type="email" placeholder="이메일"
+              value={signupEmail}
+              onChange={e => { setSignupEmail(e.target.value); setEmailVerified(false); setOtpSent(false); setOtpCode(''); setOtpMsg('') }}
+              disabled={emailVerified} />
+            <button className="nickname-check-btn" onClick={sendOtp} type="button" disabled={otpLoading || emailVerified}>
+              {emailVerified ? '✓' : otpSent ? '재발송' : '인증코드 발송'}
+            </button>
+          </div>
+          {otpSent && !emailVerified && (
+            <div className="nickname-row">
+              <input className="auth-input nickname-input" placeholder="인증코드 6자리"
+                value={otpCode} onChange={e => setOtpCode(e.target.value)} maxLength={6} />
+              <button className="nickname-check-btn" onClick={verifyOtp} type="button" disabled={otpLoading}>
+                확인
+              </button>
+            </div>
+          )}
+          {otpMsg && (
+            <p className={`nickname-msg ${emailVerified ? 'nickname-ok' : 'nickname-err'}`}>{otpMsg}</p>
+          )}
 
           {/* 비밀번호 */}
           <div className="pw-row">
