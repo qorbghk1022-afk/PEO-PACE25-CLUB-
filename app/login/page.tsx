@@ -3,6 +3,25 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase/client'
 
+function EyeIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#999" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+      <circle cx="12" cy="12" r="3"/>
+    </svg>
+  )
+}
+
+function EyeOffIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#999" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/>
+      <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/>
+      <line x1="1" y1="1" x2="23" y2="23"/>
+    </svg>
+  )
+}
+
 type View = 'splash' | 'main' | 'login' | 'signup'
 
 declare global {
@@ -200,7 +219,7 @@ export default function LoginPage() {
             <input className="auth-input" type={showLoginPw ? 'text' : 'password'} placeholder="비밀번호"
               value={password} onChange={e => setPassword(e.target.value)} />
             <button className="pw-eye" type="button" onClick={() => setShowLoginPw(v => !v)}>
-              {showLoginPw ? '🙈' : '👁️'}
+              {showLoginPw ? <EyeOffIcon /> : <EyeIcon />}
             </button>
           </div>
           {error && <p className="auth-error">{error}</p>}
@@ -239,7 +258,7 @@ export default function LoginPage() {
               placeholder="비밀번호 (8자↑, 소문자·숫자·특수문자)"
               value={signupPassword} onChange={e => setSignupPassword(e.target.value)} />
             <button className="pw-eye" type="button" onClick={() => setShowSignupPw(v => !v)}>
-              {showSignupPw ? '🙈' : '👁️'}
+              {showSignupPw ? <EyeOffIcon /> : <EyeIcon />}
             </button>
           </div>
 
@@ -249,7 +268,7 @@ export default function LoginPage() {
               placeholder="비밀번호 확인"
               value={passwordConfirm} onChange={e => setPasswordConfirm(e.target.value)} />
             <button className="pw-eye" type="button" onClick={() => setShowSignupPwConfirm(v => !v)}>
-              {showSignupPwConfirm ? '🙈' : '👁️'}
+              {showSignupPwConfirm ? <EyeOffIcon /> : <EyeIcon />}
             </button>
             {pwMatch && <span className="pw-match-check">✓</span>}
           </div>
