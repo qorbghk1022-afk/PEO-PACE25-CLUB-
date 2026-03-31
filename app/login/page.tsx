@@ -138,7 +138,7 @@ export default function LoginPage() {
       options: { shouldCreateUser: true },
     })
     if (error) {
-      setOtpMsg('인증코드 발송에 실패했어요')
+      setOtpMsg(`발송 실패: ${error.message}`)
     } else {
       setOtpSent(true)
       setOtpMsg('인증코드를 이메일로 발송했어요')
