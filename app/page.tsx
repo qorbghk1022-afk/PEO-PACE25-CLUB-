@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase/client'
 import type { Member, SeasonStats, Season, RollingScores } from '@/lib/types'
@@ -11,7 +11,7 @@ import Calendar from '@/components/Calendar'
 
 const TABS = ['챌린지', '랭킹', '캘린더', 'MY'] as const
 
-const TAB_ICONS: Record<string, JSX.Element> = {
+const TAB_ICONS: Record<string, React.ReactElement> = {
   '챌린지': (
     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
