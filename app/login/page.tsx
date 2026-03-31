@@ -196,7 +196,7 @@ export default function LoginPage() {
     if (existing) {
       await supabase.from('members').update({ user_id: userId }).eq('nickname', nickname.trim())
     } else {
-      await supabase.from('members').insert({ nickname: nickname.trim(), user_id: userId, egg_type: 'star' })
+      await supabase.from('members').insert({ nickname: nickname.trim(), user_id: userId, egg_type: 'star', is_active: true })
     }
 
     const fullAddress = addressDetail ? `${address} ${addressDetail}` : address
