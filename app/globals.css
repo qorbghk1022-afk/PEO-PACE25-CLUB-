@@ -216,6 +216,42 @@ html, body {
 }
 .auth-input:focus { border-color: #111; background: #fff; }
 
+/* 비밀번호 눈 아이콘 */
+.pw-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+.pw-row .auth-input {
+  padding-right: 48px;
+}
+.pw-eye {
+  position: absolute;
+  right: 12px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 16px;
+  padding: 0;
+  line-height: 1;
+}
+.pw-match-check {
+  position: absolute;
+  right: 40px;
+  color: #2e7d32;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+/* 주소 */
+.address-row {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+}
+.address-input { flex: 1; }
+
 .nickname-row {
   display: flex;
   gap: 8px;
