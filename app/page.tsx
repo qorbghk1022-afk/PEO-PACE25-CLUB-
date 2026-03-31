@@ -43,9 +43,13 @@ export default function Home() {
     setMembers(m)
     setSeasonStats((statsData as SeasonStats[]) || [])
 
-    // 로그인한 유저를 기본 선택
+    // 로그인한 유저를 기본 선택 (비활성 멤버도 포함해서 찾기)
     if (userId) {
-      const mine = m.find((mem: Member) => mem.user_id === userId)
+      let mine = m.find((mem: Member) => mem.user_id === userId)
+      if (!mine) {
+        const { data: myMember } = await supabase.from('members').select('*').eq('user_id', userId).maybeSingle()
+        if (myMember) mine = myMember as Member
+      }
       setSelectedMember(mine ?? m[0] ?? null)
     } else if (m.length > 0) {
       setSelectedMember(m[0])
