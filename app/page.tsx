@@ -18,11 +18,13 @@ export default function Home() {
   const [seasonStats, setSeasonStats] = useState<SeasonStats[]>([])
   const [rollingScores, setRollingScores] = useState<Record<string, RollingScores>>({})
   const [selectedMember, setSelectedMember] = useState<Member | null>(null)
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (!session) { router.push('/login'); return }
+      setCurrentUserId(session.user.id)
       loadData(session.user.id)
     })
   }, [])
@@ -141,6 +143,7 @@ export default function Home() {
             rollingScores={selectedMember ? rollingScores[selectedMember.nickname] : undefined}
             members={members}
             onSelectMember={selectMember}
+            currentUserId={currentUserId}
           />
         )}
         {activeTab === '챌린지보드' && (

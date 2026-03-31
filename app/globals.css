@@ -560,3 +560,110 @@ html, body {
 .empty-state { text-align: center; padding: 60px 20px; color: var(--sub); }
 .empty-state p { font-size: 16px; margin-bottom: 8px; }
 .empty-sub { font-size: 13px; }
+
+/* 설정 섹션 */
+.settings-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  margin-top: 8px;
+}
+.settings-card {
+  background: #fff;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+}
+.settings-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px;
+  border-bottom: 1px solid #f0f0f0;
+}
+.settings-card-title { font-size: 15px; font-weight: 700; }
+.settings-edit-btn {
+  font-size: 13px; color: #A51C30; background: none; border: none; cursor: pointer; font-weight: 600;
+}
+.info-rows { padding: 8px 0; }
+.info-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  border-bottom: 1px solid #f9f9f9;
+}
+.info-row:last-child { border-bottom: none; }
+.info-label { font-size: 14px; color: #888; min-width: 70px; }
+.info-value { font-size: 14px; color: #111; text-align: right; flex: 1; }
+.info-address { font-size: 12px; }
+.nickname-edit-row { display: flex; gap: 6px; align-items: center; }
+.info-input {
+  border: 1.5px solid #e0e0e0; border-radius: 8px;
+  padding: 6px 10px; font-size: 14px; outline: none; width: 120px;
+}
+.info-save-btn {
+  background: #111; color: #fff; border: none; border-radius: 8px;
+  padding: 6px 12px; font-size: 13px; font-weight: 600; cursor: pointer;
+}
+.info-cancel-btn {
+  background: none; border: 1px solid #ddd; border-radius: 8px;
+  padding: 6px 10px; font-size: 13px; cursor: pointer; color: #666;
+}
+.info-msg { font-size: 12px; color: #A51C30; padding: 0 16px 8px; }
+
+.settings-links { }
+.settings-link-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px;
+  border-bottom: 1px solid #f0f0f0;
+  text-decoration: none;
+  color: #111;
+  font-size: 15px;
+  width: 100%;
+  background: none;
+  border-left: none;
+  border-right: none;
+  border-top: none;
+  cursor: pointer;
+}
+.settings-link-row:last-child { border-bottom: none; }
+.settings-chevron { color: #ccc; font-size: 18px; }
+.logout-btn { color: #111; }
+.delete-btn { color: #e53935; }
+
+/* 모달 */
+.modal-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.5);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 100;
+}
+.modal-box {
+  background: #fff; border-radius: 20px;
+  padding: 28px 24px; width: 300px;
+  text-align: center;
+}
+.modal-title { font-size: 18px; font-weight: 700; margin-bottom: 10px; }
+.modal-desc { font-size: 14px; color: #666; margin-bottom: 24px; line-height: 1.5; }
+.modal-btns { display: flex; gap: 10px; }
+.modal-cancel {
+  flex: 1; padding: 14px; border-radius: 12px;
+  border: 1.5px solid #ddd; background: #fff;
+  font-size: 15px; font-weight: 600; cursor: pointer; color: #666;
+}
+.modal-confirm {
+  flex: 1; padding: 14px; border-radius: 12px;
+  border: none; background: #e53935;
+  font-size: 15px; font-weight: 600; cursor: pointer; color: #fff;
+}
+
+/* 약관 페이지 */
+.policy-page {
+  max-width: 600px; margin: 0 auto; padding: 40px 20px;
+}
+.policy-page h1 { font-size: 22px; font-weight: 700; margin-bottom: 20px; }
+.policy-page p { font-size: 15px; color: #555; line-height: 1.7; }
