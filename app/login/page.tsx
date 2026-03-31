@@ -132,6 +132,7 @@ export default function LoginPage() {
     if (!phone.trim()) { setError('전화번호를 입력해주세요'); return }
     if (!address.trim()) { setError('주소를 검색해주세요'); return }
     if (!privacyAgreed) { setError('개인정보 수집·이용에 동의해주세요'); return }
+    if (!stravaAgreed) { setError('스트라바 데이터 연동에 동의해주세요'); return }
     const pwErr = validatePassword(signupPassword)
     if (pwErr) { setError(pwErr); return }
     if (signupPassword !== passwordConfirm) { setError('비밀번호가 일치하지 않아요'); return }
@@ -296,7 +297,7 @@ export default function LoginPage() {
             </label>
             <label className="consent-row">
               <input type="checkbox" checked={stravaAgreed} onChange={e => setStravaAgreed(e.target.checked)} />
-              <span>[선택] 스트라바 활동 데이터 연동 동의 (점수 산출 목적)</span>
+              <span>[필수] 스트라바 활동 데이터 연동 동의 (점수 산출 목적)</span>
             </label>
           </div>
 
