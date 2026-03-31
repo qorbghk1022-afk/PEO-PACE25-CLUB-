@@ -9,15 +9,38 @@ import ChallengeBoard from '@/components/ChallengeBoard'
 import Ranking from '@/components/Ranking'
 import Calendar from '@/components/Calendar'
 
-const TABS = ['마이페이지', '챌린지보드', '랜킹', '불꽃캘린더'] as const
+const TABS = ['챌린지', '랭킹', '캘린더', 'MY'] as const
+
+const TAB_ICONS: Record<string, JSX.Element> = {
+  '챌린지': (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+    </svg>
+  ),
+  '랭킹': (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="18 20 18 10"/><polyline points="12 20 12 4"/><polyline points="6 20 6 14"/>
+    </svg>
+  ),
+  '캘린더': (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+    </svg>
+  ),
+  'MY': (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
+    </svg>
+  ),
+}
 
 export default function Home() {
   const router = useRouter()
-  const [activeTab, setActiveTab] = useState<(typeof TABS)[number]>('랜킹')
+  const [activeTab, setActiveTab] = useState<(typeof TABS)[number]>('랭킹')
   const [members, setMembers] = useState<Member[]>([])
   const [seasonStats, setSeasonStats] = useState<SeasonStats[]>([])
   const [rollingScores, setRollingScores] = useState<Record<string, RollingScores>>({})
-  const [selectedMember, setSelectedMember] = useState<Member | null>(null)
+  const [currentMember, setCurrentMember] = useState<Member | null>(null)
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
 
@@ -30,7 +53,6 @@ export default function Home() {
   }, [])
 
   async function loadData(userId?: string) {
-
     setLoading(true)
 
     const [{ data: membersData }, { data: statsData }, { data: currentSeason }] = await Promise.all([
@@ -43,65 +65,46 @@ export default function Home() {
     setMembers(m)
     setSeasonStats((statsData as SeasonStats[]) || [])
 
-    // 로그인한 유저를 기본 선택 (비활성 멤버도 포함해서 찾기)
     if (userId) {
       let mine = m.find((mem: Member) => mem.user_id === userId)
       if (!mine) {
         const { data: myMember } = await supabase.from('members').select('*').eq('user_id', userId).maybeSingle()
         if (myMember) mine = myMember as Member
       }
-      setSelectedMember(mine ?? m[0] ?? null)
-    } else if (m.length > 0) {
-      setSelectedMember(m[0])
+      setCurrentMember(mine ?? null)
     }
 
-    // 롤링 평균: 현재 스프린트 시작일 기준 3개월 전 윈도우
     const sprintStart = (currentSeason as Season | null)?.start_date ?? new Date().toISOString().split('T')[0]
     const lookback = new Date(sprintStart)
     lookback.setMonth(lookback.getMonth() - 3)
     const lookbackDate = lookback.toISOString().split('T')[0]
 
     const { data: windowSeasons } = await supabase
-      .from('seasons')
-      .select('id')
-      .gte('start_date', lookbackDate)
-      .lte('start_date', sprintStart)
+      .from('seasons').select('id').gte('start_date', lookbackDate).lte('start_date', sprintStart)
 
     const windowIds = (windowSeasons || []).map((s: { id: string }) => s.id)
     const totalSeasons = windowIds.length
 
     if (totalSeasons > 0) {
       const { data: windowStats } = await supabase
-        .from('member_season_stats')
-        .select('*')
-        .in('season_id', windowIds)
+        .from('member_season_stats').select('*').in('season_id', windowIds)
 
       const scores: Record<string, RollingScores> = {}
       for (const member of m) {
         const nick = member.nickname
         const nStats = (windowStats || []).filter((s: SeasonStats) => s.member_nickname === nick)
-        // 안 뛴 시즌은 0점으로 채워서 평균 → 자연 감소
         const avg = (key: keyof Pick<SeasonStats, 'speed_score' | 'endurance_score' | 'longrun_score' | 'consistency_score' | 'efficiency_score'>) =>
           nStats.reduce((sum: number, s: SeasonStats) => sum + (s[key] || 0), 0) / totalSeasons
         scores[nick] = {
-          speed: avg('speed_score'),
-          endurance: avg('endurance_score'),
-          longRun: avg('longrun_score'),
-          consistency: avg('consistency_score'),
-          efficiency: avg('efficiency_score'),
-          activeSeasons: nStats.length,
-          totalSeasons,
+          speed: avg('speed_score'), endurance: avg('endurance_score'),
+          longRun: avg('longrun_score'), consistency: avg('consistency_score'),
+          efficiency: avg('efficiency_score'), activeSeasons: nStats.length, totalSeasons,
         }
       }
       setRollingScores(scores)
     }
 
     setLoading(false)
-  }
-
-  function selectMember(member: Member) {
-    setSelectedMember(member)
-    setActiveTab('마이페이지')
   }
 
   if (loading) {
@@ -113,24 +116,36 @@ export default function Home() {
     )
   }
 
-  const TAB_ICONS: Record<string, string> = {
-    '마이페이지': '👤',
-    '챌린지보드': '⚡',
-    '랜킹': '🏆',
-    '불꽃캘린더': '🔥',
-  }
+  const myStats = seasonStats.find(s => s.member_nickname === currentMember?.nickname)
+  const myRolling = currentMember ? rollingScores[currentMember.nickname] : undefined
 
   return (
     <div className="app">
-      <header className="app-header">
-        <img src="/pace25-banner.png" alt="PACE25" className="header-banner" />
-      </header>
+      <main className="tab-content">
+        {activeTab === '챌린지' && (
+          <ChallengeBoard members={members} seasonStats={seasonStats} />
+        )}
+        {activeTab === '랭킹' && (
+          <Ranking members={members} seasonStats={seasonStats} rollingScores={rollingScores} />
+        )}
+        {activeTab === '캘린더' && (
+          <Calendar member={currentMember} members={members} onSelectMember={() => {}} />
+        )}
+        {activeTab === 'MY' && (
+          <MyPage
+            member={currentMember}
+            stats={myStats}
+            rollingScores={myRolling}
+            currentUserId={currentUserId}
+          />
+        )}
+      </main>
 
-      <nav className="tab-nav">
+      <nav className="bottom-nav">
         {TABS.map((tab) => (
           <button
             key={tab}
-            className={`tab-btn ${activeTab === tab ? 'active' : ''}`}
+            className={`bottom-nav-btn ${activeTab === tab ? 'active' : ''}`}
             onClick={() => setActiveTab(tab)}
           >
             {TAB_ICONS[tab]}
@@ -138,28 +153,6 @@ export default function Home() {
           </button>
         ))}
       </nav>
-
-      <main className="tab-content">
-        {activeTab === '마이페이지' && (
-          <MyPage
-            member={selectedMember}
-            stats={seasonStats.find(s => s.member_nickname === selectedMember?.nickname)}
-            rollingScores={selectedMember ? rollingScores[selectedMember.nickname] : undefined}
-            members={members}
-            onSelectMember={selectMember}
-            currentUserId={currentUserId}
-          />
-        )}
-        {activeTab === '챌린지보드' && (
-          <ChallengeBoard members={members} seasonStats={seasonStats} />
-        )}
-        {activeTab === '랜킹' && (
-          <Ranking members={members} seasonStats={seasonStats} onSelectMember={selectMember} />
-        )}
-        {activeTab === '불꽃캘린더' && (
-          <Calendar member={selectedMember} members={members} onSelectMember={selectMember} />
-        )}
-      </main>
     </div>
   )
 }
