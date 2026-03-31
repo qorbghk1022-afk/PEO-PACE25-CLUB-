@@ -148,7 +148,7 @@ export default function LoginPage() {
 
   // 인증코드 확인
   async function verifyOtp() {
-    if (!otpCode || otpCode.length !== 6) { setOtpMsg('6자리 코드를 입력해주세요'); return }
+    if (!otpCode || otpCode.length < 6) { setOtpMsg('인증코드를 입력해주세요'); return }
     setOtpLoading(true)
     const { error } = await supabase.auth.verifyOtp({
       email: signupEmail,
@@ -304,8 +304,8 @@ export default function LoginPage() {
           </div>
           {otpSent && !emailVerified && (
             <div className="nickname-row">
-              <input className="auth-input nickname-input" placeholder="인증코드 6자리"
-                value={otpCode} onChange={e => setOtpCode(e.target.value)} maxLength={6} />
+              <input className="auth-input nickname-input" placeholder="인증코드 입력"
+                value={otpCode} onChange={e => setOtpCode(e.target.value)} maxLength={8} />
               <button className="nickname-check-btn" onClick={verifyOtp} type="button" disabled={otpLoading}>
                 확인
               </button>
