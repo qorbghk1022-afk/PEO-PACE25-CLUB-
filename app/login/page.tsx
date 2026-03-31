@@ -5,6 +5,14 @@ import { supabase } from '@/lib/supabase/client'
 
 type View = 'splash' | 'main' | 'login' | 'signup'
 
+declare global {
+  interface Window {
+    daum: {
+      Postcode: new (options: { oncomplete: (data: { address: string; zonecode: string }) => void }) => { open: () => void }
+    }
+  }
+}
+
 function validatePassword(pw: string) {
   if (pw.length < 8) return '비밀번호는 8자 이상이어야 해요'
   if (!/[a-z]/.test(pw)) return '소문자 영문을 포함해야 해요'
@@ -21,6 +29,7 @@ export default function LoginPage() {
   // 로그인 폼
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [showLoginPw, setShowLoginPw] = useState(false)
 
   // 회원가입 폼
   const [nickname, setNickname] = useState('')
@@ -29,14 +38,26 @@ export default function LoginPage() {
   const [signupEmail, setSignupEmail] = useState('')
   const [signupPassword, setSignupPassword] = useState('')
   const [passwordConfirm, setPasswordConfirm] = useState('')
+  const [showSignupPw, setShowSignupPw] = useState(false)
+  const [showSignupPwConfirm, setShowSignupPwConfirm] = useState(false)
   const [realName, setRealName] = useState('')
   const [phone, setPhone] = useState('')
   const [address, setAddress] = useState('')
+  const [addressDetail, setAddressDetail] = useState('')
   const [privacyAgreed, setPrivacyAgreed] = useState(false)
   const [stravaAgreed, setStravaAgreed] = useState(false)
 
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+
+  // 카카오 우편번호 스크립트 로드
+  useEffect(() => {
+    const script = document.createElement('script')
+    script.src = 'https://t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js'
+    script.async = true
+    document.head.appendChild(script)
+    return () => { document.head.removeChild(script) }
+  }, [])
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -46,6 +67,16 @@ export default function LoginPage() {
     const t2 = setTimeout(() => { setPhase(2); setView('main') }, 2200)
     return () => { clearTimeout(t1); clearTimeout(t2) }
   }, [])
+
+  function openAddressSearch() {
+    if (!window.daum) return
+    new window.daum.Postcode({
+      oncomplete(data) {
+        setAddress(data.address)
+        setAddressDetail('')
+      },
+    }).open()
+  }
 
   async function handleLogin() {
     if (!email || !password) { setError('이메일과 비밀번호를 입력해주세요'); return }
@@ -80,7 +111,7 @@ export default function LoginPage() {
     if (!signupEmail || !signupPassword || !passwordConfirm) { setError('모든 항목을 입력해주세요'); return }
     if (!realName.trim()) { setError('실명을 입력해주세요'); return }
     if (!phone.trim()) { setError('전화번호를 입력해주세요'); return }
-    if (!address.trim()) { setError('주소를 입력해주세요'); return }
+    if (!address.trim()) { setError('주소를 검색해주세요'); return }
     if (!privacyAgreed) { setError('개인정보 수집·이용에 동의해주세요'); return }
     const pwErr = validatePassword(signupPassword)
     if (pwErr) { setError(pwErr); return }
@@ -100,18 +131,17 @@ export default function LoginPage() {
     const userId = data.user?.id
     if (!userId) { setError('계정 생성에 실패했어요'); setLoading(false); return }
 
-    // members 테이블 업데이트
     if (existing) {
       await supabase.from('members').update({ user_id: userId }).eq('nickname', nickname.trim())
     } else {
       await supabase.from('members').insert({ nickname: nickname.trim(), user_id: userId, egg_type: 'star' })
     }
 
-    // 개인정보 암호화 저장 (서버 API)
+    const fullAddress = addressDetail ? `${address} ${addressDetail}` : address
     await fetch('/api/profile', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId, realName, phone, address, privacyAgreed, stravaAgreed }),
+      body: JSON.stringify({ userId, realName, phone, address: fullAddress, privacyAgreed, stravaAgreed }),
     })
 
     router.push('/')
@@ -120,30 +150,27 @@ export default function LoginPage() {
 
   const isLogin = phase >= 1
   const showForm = view === 'login' || view === 'signup'
+  const pwMatch = signupPassword.length > 0 && passwordConfirm.length > 0 && signupPassword === passwordConfirm
 
   function goBack() {
     setView('main'); setError('')
     setNickname(''); setNicknameChecked(false); setNicknameMsg('')
     setEmail(''); setPassword('')
     setSignupEmail(''); setSignupPassword(''); setPasswordConfirm('')
-    setRealName(''); setPhone(''); setAddress('')
+    setRealName(''); setPhone(''); setAddress(''); setAddressDetail('')
     setPrivacyAgreed(false); setStravaAgreed(false)
   }
 
   return (
     <div className="login-wrap">
       <div className={`login-bg-layer ${isLogin ? 'login-bg-visible' : ''}`} />
-
-      {/* 다크 오버레이 */}
       <div className={`login-overlay ${showForm ? 'overlay-visible' : ''}`} />
 
-      {/* 좌상단 뒤로가기 화살표 */}
       <button
         className={`auth-back-arrow ${showForm ? 'arrow-visible' : 'arrow-hidden'}`}
         onClick={goBack}
       >←</button>
 
-      {/* 로고 */}
       <div className="login-logo-fixed">
         <div className="egg-stack">
           <div className={`egg-scene ${isLogin ? 'sym-hidden' : 'sym-visible'}`}>
@@ -155,7 +182,7 @@ export default function LoginPage() {
         </div>
       </div>
 
-      {/* 메인: 로그인 | 회원가입 버튼 */}
+      {/* 메인 버튼 */}
       <div className={`login-bottom ${view === 'main' ? 'bottom-visible' : 'bottom-hidden'}`}>
         <div className="login-btns">
           <button className="login-btn-main" onClick={() => setView('login')}>로그인</button>
@@ -169,8 +196,13 @@ export default function LoginPage() {
         <div className="auth-form">
           <input className="auth-input" type="email" placeholder="이메일"
             value={email} onChange={e => setEmail(e.target.value)} />
-          <input className="auth-input" type="password" placeholder="비밀번호"
-            value={password} onChange={e => setPassword(e.target.value)} />
+          <div className="pw-row">
+            <input className="auth-input" type={showLoginPw ? 'text' : 'password'} placeholder="비밀번호"
+              value={password} onChange={e => setPassword(e.target.value)} />
+            <button className="pw-eye" type="button" onClick={() => setShowLoginPw(v => !v)}>
+              {showLoginPw ? '🙈' : '👁️'}
+            </button>
+          </div>
           {error && <p className="auth-error">{error}</p>}
           <button className="login-btn-main" onClick={handleLogin} disabled={loading}>
             {loading ? '...' : '로그인'}
@@ -182,6 +214,7 @@ export default function LoginPage() {
       <div className={`login-bottom form-panel signup-panel ${view === 'signup' ? 'bottom-visible' : 'bottom-hidden'}`}>
         <p className="auth-title">회원가입</p>
         <div className="auth-form">
+
           {/* 닉네임 */}
           <div className="nickname-row">
             <input className="auth-input nickname-input" placeholder="닉네임 (기존 크루원은 본인 닉네임)"
@@ -201,20 +234,42 @@ export default function LoginPage() {
             value={signupEmail} onChange={e => setSignupEmail(e.target.value)} />
 
           {/* 비밀번호 */}
-          <input className="auth-input" type="password" placeholder="비밀번호 (8자↑, 소문자·숫자·특수문자)"
-            value={signupPassword} onChange={e => setSignupPassword(e.target.value)} />
-          <input className="auth-input" type="password" placeholder="비밀번호 확인"
-            value={passwordConfirm} onChange={e => setPasswordConfirm(e.target.value)} />
+          <div className="pw-row">
+            <input className="auth-input" type={showSignupPw ? 'text' : 'password'}
+              placeholder="비밀번호 (8자↑, 소문자·숫자·특수문자)"
+              value={signupPassword} onChange={e => setSignupPassword(e.target.value)} />
+            <button className="pw-eye" type="button" onClick={() => setShowSignupPw(v => !v)}>
+              {showSignupPw ? '🙈' : '👁️'}
+            </button>
+          </div>
+
+          {/* 비밀번호 확인 */}
+          <div className="pw-row">
+            <input className="auth-input" type={showSignupPwConfirm ? 'text' : 'password'}
+              placeholder="비밀번호 확인"
+              value={passwordConfirm} onChange={e => setPasswordConfirm(e.target.value)} />
+            <button className="pw-eye" type="button" onClick={() => setShowSignupPwConfirm(v => !v)}>
+              {showSignupPwConfirm ? '🙈' : '👁️'}
+            </button>
+            {pwMatch && <span className="pw-match-check">✓</span>}
+          </div>
 
           {/* 전화번호 */}
           <input className="auth-input" type="tel" placeholder="전화번호 (010-0000-0000)"
             value={phone} onChange={e => setPhone(e.target.value)} />
 
-          {/* 주소 */}
-          <input className="auth-input" placeholder="주소 (배송지)"
-            value={address} onChange={e => setAddress(e.target.value)} />
+          {/* 주소 검색 */}
+          <div className="address-row">
+            <input className="auth-input address-input" placeholder="주소 검색"
+              value={address} readOnly />
+            <button className="nickname-check-btn" type="button" onClick={openAddressSearch}>검색</button>
+          </div>
+          {address && (
+            <input className="auth-input" placeholder="상세주소 (동/호수 등)"
+              value={addressDetail} onChange={e => setAddressDetail(e.target.value)} />
+          )}
 
-          {/* 동의 체크박스 */}
+          {/* 동의 */}
           <div className="consent-box">
             <label className="consent-row">
               <input type="checkbox" checked={privacyAgreed} onChange={e => setPrivacyAgreed(e.target.checked)} />
