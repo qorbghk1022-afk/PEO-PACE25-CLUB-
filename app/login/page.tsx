@@ -79,6 +79,13 @@ export default function LoginPage() {
   }, [])
 
   useEffect(() => {
+    // 이메일 인증 링크 클릭 후 돌아왔을 때 토큰 처리
+    supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_IN' && session) {
+        router.push('/')
+      }
+    })
+
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) router.push('/')
     })
