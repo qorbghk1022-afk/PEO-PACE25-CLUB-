@@ -68,8 +68,11 @@ export default function Home() {
     if (userId) {
       let mine = m.find((mem: Member) => mem.user_id === userId)
       if (!mine) {
-        const { data: myMember } = await supabase.from('members').select('*').eq('user_id', userId).maybeSingle()
+        // fallback: search without is_active filter (new users may have is_active=false)
+        const { data: myMember, error: myErr } = await supabase
+          .from('members').select('*').eq('user_id', userId).maybeSingle()
         if (myMember) mine = myMember as Member
+        if (myErr) console.warn('member fallback error:', myErr)
       }
       setCurrentMember(mine ?? null)
     }
@@ -121,6 +124,9 @@ export default function Home() {
 
   return (
     <div className="app">
+      <header className="app-header">
+        <img src="/pace25-banner.png" alt="PACE25" className="header-banner" />
+      </header>
       <main className="tab-content">
         {activeTab === '챌린지' && (
           <ChallengeBoard members={members} seasonStats={seasonStats} />

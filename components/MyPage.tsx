@@ -110,7 +110,21 @@ export default function MyPage({
   if (!member) {
     return (
       <div className="my-page-wrap">
-        <div className="empty-state"><p>🥚 프로필을 불러오는 중...</p></div>
+        <div className="empty-state">
+          <p>🥚 내 프로필을 찾을 수 없어요</p>
+          <p className="empty-sub">
+            {currentUserId
+              ? '회원가입이 완료되지 않았거나 계정이 아직 연결 중이에요.'
+              : '로그인이 필요해요.'}
+          </p>
+          <button
+            className="login-btn-main"
+            style={{ marginTop: 24, maxWidth: 240 }}
+            onClick={() => window.location.reload()}
+          >
+            다시 시도
+          </button>
+        </div>
       </div>
     )
   }
