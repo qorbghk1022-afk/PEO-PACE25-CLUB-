@@ -187,24 +187,18 @@ export default function LoginPage() {
     const userId = user?.id
     if (!userId) { setError('계정 정보를 가져올 수 없어요'); setLoading(false); return }
 
-    const { data: existing } = await supabase
-      .from('members')
-      .select('nickname, user_id')
-      .eq('nickname', nickname.trim())
-      .maybeSingle()
-
-    if (existing) {
-      await supabase.from('members').update({ user_id: userId }).eq('nickname', nickname.trim())
-    } else {
-      await supabase.from('members').insert({ nickname: nickname.trim(), user_id: userId, egg_type: 'star', is_active: true })
-    }
-
     const fullAddress = addressDetail ? `${address} ${addressDetail}` : address
-    await fetch('/api/profile', {
+    const res = await fetch('/api/signup-complete', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId, realName, phone, address: fullAddress, privacyAgreed, stravaAgreed }),
+      body: JSON.stringify({ userId, nickname: nickname.trim(), realName, phone, address: fullAddress, privacyAgreed, stravaAgreed }),
     })
+    if (!res.ok) {
+      const { error: apiErr } = await res.json().catch(() => ({ error: '알 수 없는 오류' }))
+      setError(apiErr || '가입 처리 중 오류가 발생했어요')
+      setLoading(false)
+      return
+    }
 
     router.push('/')
     setLoading(false)
