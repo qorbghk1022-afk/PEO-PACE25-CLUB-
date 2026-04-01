@@ -350,8 +350,7 @@ html, body {
 
 /* 헤더 */
 .app-header {
-  background: #fff;
-  border-bottom: 1px solid #f0f0f0;
+  background: #000;
   padding: 10px 20px;
   display: flex;
   justify-content: space-between;
@@ -361,7 +360,7 @@ html, body {
   z-index: 20;
 }
 .header-logo {
-  height: 36px;
+  height: 40px;
   width: auto;
   object-fit: contain;
 }
@@ -369,7 +368,7 @@ html, body {
   background: none;
   border: none;
   cursor: pointer;
-  color: #111;
+  color: #fff;
   padding: 4px;
   display: flex;
   align-items: center;
