@@ -147,12 +147,21 @@ export default function MyPage({
 
   return (
     <div className="my-page-wrap">
+      {/* MY 상단 헤더 */}
+      <div className="my-page-header">
+        <div className="my-page-header-left">
+          <div className="my-page-lv">LV.{member.lv}</div>
+          <div className="my-page-nickname">{member.nickname}</div>
+        </div>
+        <div className="my-page-header-right">
+          <div className="my-char-circle" style={{ background: EGG_BG[member.egg_type] || '#f5f5f5' }}>
+            <span>{getCharEmoji(member.lv, member.egg_type)}</span>
+          </div>
+        </div>
+      </div>
+
       {/* 캐릭터 카드 */}
       <div className="character-card" style={{ background: EGG_BG[member.egg_type] || '#f5f5f5' }}>
-        <div className="card-header">
-          <div className="lv-badge">LV.{member.lv}</div>
-          <div className="nickname">{member.nickname}</div>
-        </div>
         <div className="character-display">
           <div className="character-emoji">{getCharEmoji(member.lv, member.egg_type)}</div>
         </div>
