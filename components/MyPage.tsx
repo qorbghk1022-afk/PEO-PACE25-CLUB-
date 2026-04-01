@@ -124,6 +124,13 @@ export default function MyPage({
           >
             다시 시도
           </button>
+          <button
+            className="login-btn-sub"
+            style={{ marginTop: 12, maxWidth: 240 }}
+            onClick={handleLogout}
+          >
+            로그아웃
+          </button>
         </div>
       </div>
     )
