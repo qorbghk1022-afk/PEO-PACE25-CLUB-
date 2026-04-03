@@ -8,6 +8,7 @@ import MyPage from '@/components/MyPage'
 import ChallengeBoard from '@/components/ChallengeBoard'
 import Ranking from '@/components/Ranking'
 import Calendar from '@/components/Calendar'
+import NotificationBell from '@/components/NotificationBell'
 
 const TABS = ['챌린지', '랭킹', '캘린더', 'MY'] as const
 
@@ -43,23 +44,56 @@ export default function Home() {
   const [currentMember, setCurrentMember] = useState<Member | null>(null)
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  const [menuOpen, setMenuOpen] = useState(false)
+  const [crewId, setCrewId] = useState<string | null>(null)
+  const [crewName, setCrewName] = useState<string | null>(null)
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (!session) { router.push('/login'); return }
       setCurrentUserId(session.user.id)
-      loadData(session.user.id)
+
+      // 크루 소속 체크
+      const { data: crewMembers } = await supabase
+        .from('crew_members').select('crew_id').eq('user_id', session.user.id)
+
+      if (!crewMembers || crewMembers.length === 0) {
+        router.push('/crew-select')
+        return
+      }
+
+      // 저장된 크루 or 첫 번째 크루
+      const saved = localStorage.getItem('peo_active_crew')
+      const validSaved = saved && crewMembers.some(cm => cm.crew_id === saved)
+      const activeCrewId = validSaved ? saved : crewMembers[0].crew_id
+
+      setCrewId(activeCrewId)
+      localStorage.setItem('peo_active_crew', activeCrewId)
+      const { data: crew } = await supabase.from('crews').select('name').eq('id', activeCrewId).single()
+      if (crew) setCrewName(crew.name)
+
+      loadData(session.user.id, activeCrewId)
     })
   }, [])
 
-  async function loadData(userId?: string) {
+  async function loadData(userId?: string, userCrewId?: string) {
     setLoading(true)
 
-    const [{ data: membersData }, { data: statsData }, { data: currentSeason }] = await Promise.all([
-      supabase.from('members').select('*').eq('is_active', true).order('lv', { ascending: false }),
+    let membersQuery = supabase.from('members').select('*').eq('is_active', true).order('lv', { ascending: false })
+    let seasonsQuery = supabase.from('seasons').select('*').eq('is_current', true)
+
+    if (userCrewId) {
+      membersQuery = membersQuery.eq('crew_id', userCrewId)
+      seasonsQuery = seasonsQuery.eq('crew_id', userCrewId)
+    }
+
+    const [{ data: membersData }, { data: statsData }, { data: currentSeasonArr }] = await Promise.all([
+      membersQuery,
       supabase.from('member_season_stats').select('*').order('total_score', { ascending: false }),
-      supabase.from('seasons').select('*').eq('is_current', true).single(),
+      seasonsQuery,
     ])
+
+    const currentSeason = currentSeasonArr?.[0] || null
 
     const m = (membersData as Member[]) || []
     setMembers(m)
@@ -125,13 +159,52 @@ export default function Home() {
   return (
     <div className="app">
       <header className="app-header">
-        <img src="/peo-egglog-black.png" alt="PEO" className="header-logo" />
-        <button className="header-profile-btn" onClick={() => setActiveTab('MY')}>
-          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
+        <button className="header-back-btn" onClick={() => router.push('/crew-select')}>
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M19 12H5"/><polyline points="12 19 5 12 12 5"/>
           </svg>
         </button>
+        <img src="/peo-logo-center.png" alt="PEO" className="header-logo" />
+        <div className="header-right">
+          <NotificationBell userId={currentUserId} />
+          <button className="header-menu-btn" onClick={() => setMenuOpen(!menuOpen)}>
+            <span /><span /><span />
+          </button>
+        </div>
       </header>
+
+      {/* 사이드 메뉴 */}
+      {menuOpen && <div className="menu-overlay" onClick={() => setMenuOpen(false)} />}
+      <div className={`side-menu ${menuOpen ? 'open' : ''}`}>
+        <div className="side-menu-header">
+          <span>메뉴</span>
+          <button className="side-menu-close" onClick={() => setMenuOpen(false)}>✕</button>
+        </div>
+        {currentMember && (
+          <div className="side-menu-profile">
+            <div className="side-menu-avatar">
+              {currentMember.avatar_url ? (
+                <img src={currentMember.avatar_url} alt="" />
+              ) : (
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#999" strokeWidth="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+              )}
+            </div>
+            <div>
+              <div className="side-menu-name">{currentMember.nickname}</div>
+              <div className="side-menu-lv">LV.{currentMember.lv}{crewName ? ` · ${crewName}` : ''}</div>
+            </div>
+          </div>
+        )}
+        <button className="side-menu-item" onClick={() => { setMenuOpen(false); setActiveTab('MY') }}>내 정보</button>
+        <button className="side-menu-item" onClick={() => { setMenuOpen(false); router.push('/crew-select') }}>크루 찾기 / 전환</button>
+        <div className="side-menu-divider" />
+        <a href="/policy/terms" className="side-menu-item">서비스 이용약관</a>
+        <a href="/policy/privacy" className="side-menu-item">개인정보 처리방침</a>
+        <a href="/policy/all" className="side-menu-item">이용 약관 및 방침</a>
+        <div className="side-menu-divider" />
+        <button className="side-menu-item" onClick={async () => { await supabase.auth.signOut(); router.push('/login') }}>로그아웃</button>
+        <button className="side-menu-item side-menu-danger">회원탈퇴</button>
+      </div>
       <main className="tab-content">
         {activeTab === '챌린지' && (
           <ChallengeBoard members={members} seasonStats={seasonStats} />

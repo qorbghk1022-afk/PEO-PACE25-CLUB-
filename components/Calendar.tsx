@@ -67,18 +67,10 @@ export default function Calendar({
 
   return (
     <div className="calendar-page">
-      <div className="member-selector">
-        {members.map(m => (
-          <button key={m.nickname} className={`member-chip ${m.nickname === member.nickname ? 'active' : ''}`} onClick={() => onSelectMember(m)}>
-            {m.nickname}
-          </button>
-        ))}
-      </div>
-
       <div className="calendar-container">
         <div className="calendar-nav">
           <button onClick={prevMonth}>◀</button>
-          <h3>{year}년 {month}월 — {member.nickname}</h3>
+          <h3>{year}년 {month}월</h3>
           <button onClick={nextMonth}>▶</button>
         </div>
 
@@ -105,15 +97,15 @@ export default function Calendar({
                     onClick={() => hasRun && setSelectedDate(isSelected ? null : dateStr)}
                   >
                     <span className="day-num">{day}</span>
-                    {hasRun && <span className="fire-icon">🔥{dayActs.length > 1 ? dayActs.length : ''}</span>}
+                    {hasRun && <span className="fire-icon">●{dayActs.length > 1 ? dayActs.length : ''}</span>}
                   </div>
                 )
               })}
             </div>
 
             <div className="monthly-summary">
-              <span>🔥 {runDays}일 달림</span>
-              <span>📏 {totalDist.toFixed(1)}km</span>
+              <span>{runDays}일 달림</span>
+              <span>{totalDist.toFixed(1)}km</span>
             </div>
 
             {selectedDate && actMap[selectedDate] && (
@@ -123,9 +115,9 @@ export default function Calendar({
                   <div key={i} className="activity-item">
                     <div className="act-name">{act.activity_name || '러닝'}</div>
                     <div className="act-stats">
-                      <span>📏 {act.distance_km.toFixed(2)}km</span>
-                      <span>⏱️ {formatTime(act.moving_time_sec)}</span>
-                      <span>🏃 {formatPace(act.avg_pace_sec)}/km</span>
+                      <span>{act.distance_km.toFixed(2)}km</span>
+                      <span>{formatTime(act.moving_time_sec)}</span>
+                      <span>{formatPace(act.avg_pace_sec)}/km</span>
                     </div>
                   </div>
                 ))}

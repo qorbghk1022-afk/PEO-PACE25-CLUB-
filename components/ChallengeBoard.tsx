@@ -4,9 +4,17 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase/client'
 import type { Member, SeasonStats } from '@/lib/types'
 
+interface TeamMember {
+  nickname: string
+  lv: number
+  dist: number
+  remain: number
+  fine: number
+}
+
 interface Team {
   team_num: number
-  members: string[]
+  members: TeamMember[]
   totalDist: number
   goalKm: number
   shortfall: number
@@ -22,6 +30,7 @@ export default function ChallengeBoard({
   const [teams, setTeams] = useState<Team[]>([])
   const [period, setPeriod] = useState({ start: '', end: '', goal: 15, fine: 3000 })
   const [loading, setLoading] = useState(true)
+  const [totalFine, setTotalFine] = useState(0)
 
   useEffect(() => { loadChallenge() }, [])
 
@@ -53,18 +62,33 @@ export default function ChallengeBoard({
       distMap[a.member_nickname] = (distMap[a.member_nickname] || 0) + a.distance_km
     })
 
-    const teamNums = [...new Set((teamsData || []).map((t: { team_num: number }) => t.team_num))]
+    const memberMap: Record<string, Member> = {}
+    members.forEach(m => { memberMap[m.nickname] = m })
+
+    const teamNums = [...new Set((teamsData || []).map((t: { team_num: number }) => t.team_num))].sort((a, b) => a - b)
     const teamList: Team[] = teamNums.map(num => {
       const mems = (teamsData || [])
         .filter((t: { team_num: number }) => t.team_num === num)
-        .map((t: { member_nickname: string }) => t.member_nickname)
+        .map((t: { member_nickname: string }) => {
+          const dist = distMap[t.member_nickname] || 0
+          const remain = Math.max(0, challenge.goal_km - dist)
+          const fine = Math.round(remain * challenge.fine_per_km)
+          return {
+            nickname: t.member_nickname,
+            lv: memberMap[t.member_nickname]?.lv || 0,
+            dist,
+            remain,
+            fine,
+          }
+        })
       const goalKm = mems.length * challenge.goal_km
-      const totalDist = mems.reduce((s: number, n: string) => s + (distMap[n] || 0), 0)
+      const totalDist = mems.reduce((s, m) => s + m.dist, 0)
       const shortfall = Math.max(0, goalKm - totalDist)
       return { team_num: num, members: mems, totalDist, goalKm, shortfall, fine: Math.round(shortfall * challenge.fine_per_km) }
     })
 
     setTeams(teamList)
+    setTotalFine(teamList.reduce((s, t) => s + t.fine, 0))
     setLoading(false)
   }
 
@@ -79,42 +103,61 @@ export default function ChallengeBoard({
     )
   }
 
-  const fmt = (d: string) => new Date(d).toLocaleDateString('ko-KR', { month: 'long', day: 'numeric' })
+  const allMembers = teams.flatMap(t => t.members.map(m => ({ ...m, team_num: t.team_num })))
+  const totalPct = teams.length > 0
+    ? Math.min(Math.round((teams.reduce((s, t) => s + t.totalDist, 0) / teams.reduce((s, t) => s + t.goalKm, 0)) * 100), 100)
+    : 0
 
   return (
-    <div className="challenge-board">
-      <div className="challenge-header">
-        <h2>⚡ 챌린지 보드</h2>
-        <p className="challenge-period">{fmt(period.start)} ~ {fmt(period.end)}</p>
-        <p className="challenge-goal">목표: 1인당 {period.goal}km | 벤금: {period.fine.toLocaleString()}원/km</p>
+    <div className="cb-wrap">
+      {/* 헤더 */}
+      <div className="cb-header">
+        <div className="cb-header-left">
+          <div className="cb-header-title">2-Week Run Challenge</div>
+          <div className="cb-header-period">{period.start}~{period.end}</div>
+        </div>
+        <div className="cb-header-right">
+          <div className="cb-goal-km">{period.goal}KM</div>
+          <div className="cb-goal-pct">{totalPct}%</div>
+        </div>
       </div>
-      <div className="teams-container">
-        {teams.map(team => {
-          const pct = Math.min((team.totalDist / team.goalKm) * 100, 100)
-          const cleared = team.totalDist >= team.goalKm
-          return (
-            <div key={team.team_num} className={`team-card ${cleared ? 'cleared' : ''}`}>
-              <div className="team-header">
-                <h3>{team.team_num}팀</h3>
-                {cleared
-                  ? <span className="badge cleared">🎉 완주!</span>
-                  : <span className="badge deficit">₩{team.fine.toLocaleString()} 예상벤금</span>}
-              </div>
-              <div className="team-members">
-                {team.members.map(n => <span key={n} className="team-member-chip">{n}</span>)}
-              </div>
-              <div className="team-progress">
-                <div className="progress-bar"><div className="progress-fill" style={{ width: `${pct}%` }} /></div>
-                <div className="progress-labels">
-                  <span>{team.totalDist.toFixed(1)}km</span>
-                  <span>/ {team.goalKm.toFixed(0)}km</span>
-                </div>
-              </div>
-              {!cleared && <div className="shortfall-info">{team.shortfall.toFixed(1)}km 부족</div>}
-            </div>
-          )
-        })}
-        {teams.length === 0 && <div className="empty-state">팀 구성이 없습니다.</div>}
+
+      {/* 테이블 */}
+      <div className="cb-table-wrap">
+        <table className="cb-table">
+          <thead>
+            <tr>
+              <th>LV</th>
+              <th>TEAM</th>
+              <th>RUNNER</th>
+              <th>DIST<br/>(km)</th>
+              <th>REM<br/>(km)</th>
+              <th>Penalty</th>
+              <th>RESULT</th>
+            </tr>
+          </thead>
+          <tbody>
+            {teams.map(team => (
+              team.members.map((m, mi) => (
+                <tr key={`${team.team_num}-${m.nickname}`}>
+                  <td>{m.lv}</td>
+                  {mi === 0 && <td rowSpan={team.members.length} className="cb-team-cell">{team.team_num}</td>}
+                  <td>{m.nickname}</td>
+                  <td>{m.dist.toFixed(1)}</td>
+                  <td>{m.remain.toFixed(1)}</td>
+                  <td>₩{m.fine.toLocaleString()}</td>
+                  <td className="cb-result">{m.remain <= 0 ? 'Clear!' : "Let's roll!"}</td>
+                </tr>
+              ))
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* 벌금 합계 */}
+      <div className="cb-total">
+        <div className="cb-total-label">스프린트 벌금 합계</div>
+        <div className="cb-total-value">₩{totalFine.toLocaleString()}</div>
       </div>
     </div>
   )

@@ -10,6 +10,8 @@ export type Member = {
   total_dist: number
   total_days: number
   is_active: boolean
+  avatar_url: string | null
+  lottery_tickets: number
 }
 
 export type SeasonStats = {
@@ -73,4 +75,43 @@ export type Challenge = {
   fine_per_km: number
   start_date: string
   end_date: string
+}
+
+export type Crew = {
+  id: string
+  name: string
+  description: string | null
+  leader_user_id: string
+  max_members: number
+  created_at: string
+  member_count?: number
+}
+
+export type CrewMember = {
+  id: string
+  crew_id: string
+  user_id: string
+  member_nickname: string
+  role: 'leader' | 'member'
+  joined_at: string
+}
+
+export type JoinRequest = {
+  id: string
+  crew_id: string
+  user_id: string
+  member_nickname: string | null
+  status: 'pending' | 'approved' | 'rejected'
+  created_at: string
+}
+
+export type Notification = {
+  id: string
+  user_id: string
+  type: string
+  title: string
+  body: string | null
+  metadata: Record<string, unknown>
+  is_read: boolean
+  created_at: string
 }
