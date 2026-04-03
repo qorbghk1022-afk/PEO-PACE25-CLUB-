@@ -360,6 +360,11 @@ html, body {
   top: 0;
   z-index: 20;
 }
+.app-header .header-logo {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+}
 .header-back-btn {
   background: none;
   border: none;
