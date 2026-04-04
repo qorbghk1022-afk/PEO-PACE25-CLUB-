@@ -12,6 +12,7 @@ export type Member = {
   is_active: boolean
   avatar_url: string | null
   lottery_tickets: number
+  created_at: string | null
 }
 
 export type SeasonStats = {

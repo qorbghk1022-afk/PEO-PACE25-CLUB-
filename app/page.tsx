@@ -6,11 +6,12 @@ import { supabase } from '@/lib/supabase/client'
 import type { Member, SeasonStats, Season, RollingScores } from '@/lib/types'
 import MyPage from '@/components/MyPage'
 import ChallengeBoard from '@/components/ChallengeBoard'
-import Ranking from '@/components/Ranking'
+// Ranking moved into ChallengeBoard tabs
 import Calendar from '@/components/Calendar'
+import SeasonDraw from '@/components/SeasonDraw'
 import NotificationBell from '@/components/NotificationBell'
 
-const TABS = ['챌린지', '랭킹', '캘린더', 'MY'] as const
+const TABS = ['챌린지', '캘린더', '추첨', 'MY'] as const
 
 const TAB_ICONS: Record<string, React.ReactElement> = {
   '챌린지': (
@@ -18,9 +19,9 @@ const TAB_ICONS: Record<string, React.ReactElement> = {
       <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
     </svg>
   ),
-  '랭킹': (
+  '추첨': (
     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <polyline points="18 20 18 10"/><polyline points="12 20 12 4"/><polyline points="6 20 6 14"/>
+      <path d="M2 9a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v1a2 2 0 0 0 0 4v1a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-1a2 2 0 0 0 0-4V9z"/><path d="M9 7v10"/>
     </svg>
   ),
   '캘린더': (
@@ -37,7 +38,17 @@ const TAB_ICONS: Record<string, React.ReactElement> = {
 
 export default function Home() {
   const router = useRouter()
-  const [activeTab, setActiveTab] = useState<(typeof TABS)[number]>('랭킹')
+  const [activeTab, _setActiveTab] = useState<(typeof TABS)[number]>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('peo_active_tab')
+      if (saved && (TABS as readonly string[]).includes(saved)) return saved as (typeof TABS)[number]
+    }
+    return '챌린지'
+  })
+  const setActiveTab = (tab: (typeof TABS)[number]) => {
+    _setActiveTab(tab)
+    localStorage.setItem('peo_active_tab', tab)
+  }
   const [members, setMembers] = useState<Member[]>([])
   const [seasonStats, setSeasonStats] = useState<SeasonStats[]>([])
   const [rollingScores, setRollingScores] = useState<Record<string, RollingScores>>({})
@@ -209,8 +220,8 @@ export default function Home() {
         {activeTab === '챌린지' && (
           <ChallengeBoard members={members} seasonStats={seasonStats} />
         )}
-        {activeTab === '랭킹' && (
-          <Ranking members={members} seasonStats={seasonStats} rollingScores={rollingScores} />
+        {activeTab === '추첨' && (
+          <SeasonDraw member={currentMember} members={members} />
         )}
         {activeTab === '캘린더' && (
           <Calendar member={currentMember} members={members} onSelectMember={() => {}} />
