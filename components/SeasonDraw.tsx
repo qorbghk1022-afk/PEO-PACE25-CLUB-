@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase/client'
 import type { Member } from '@/lib/types'
+import GachaMachine from '@/components/GachaMachine'
 
 const QUARTER = {
   start: '2026-01-20',
@@ -104,36 +105,15 @@ export default function SeasonDraw({ member, members }: { member: Member | null;
 
       {/* 뽑기 머신 */}
       <div className="draw-machine-area">
-        <div className={`draw-gacha ${isDrawing ? 'shaking' : ''}`} onClick={handleDraw}>
-          <img src="/gacha-machine.png" alt="gacha" className="draw-gacha-img" />
-          <div className="draw-gacha-balls">
-            {Array.from({ length: totalTickets }).map((_, i) => {
-              const positions = [
-                { x: 45, y: 50 }, { x: 55, y: 45 }, { x: 40, y: 40 },
-                { x: 60, y: 55 }, { x: 50, y: 35 }, { x: 35, y: 50 },
-                { x: 55, y: 60 }, { x: 65, y: 45 }, { x: 48, y: 58 },
-                { x: 42, y: 30 }, { x: 58, y: 38 }, { x: 52, y: 48 },
-              ]
-              const pos = positions[i % positions.length]
-              return (
-                <div key={i} className={`draw-gacha-ball ${isDrawing ? 'bouncing' : ''}`}
-                  style={{
-                    left: `${pos.x + (Math.random() * 6 - 3)}%`,
-                    top: `${pos.y + (Math.random() * 6 - 3)}%`,
-                    background: BALL_COLORS[i % BALL_COLORS.length],
-                    animationDelay: `${i * 0.08}s`,
-                  }} />
-              )
-            })}
-          </div>
-        </div>
-        <div className="draw-ticket-count">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#A51C30" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 9a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v1a2 2 0 0 0 0 4v1a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-1a2 2 0 0 0 0-4V9z"/><path d="M9 7v10"/></svg>
-          x {totalTickets}
-        </div>
-        <div className="draw-machine-label">
-          {isQuarterOver ? '터치하여 추첨하기' : `분기 종료 후 활성화`}
-        </div>
+        <GachaMachine
+          ticketCount={totalTickets}
+          totalBalls={totalTickets}
+          disabled={!isQuarterOver}
+          onDraw={handleDraw}
+        />
+        {!isQuarterOver && (
+          <div className="draw-machine-label">분기 종료 후 활성화</div>
+        )}
       </div>
 
       {/* 내 추첨권 */}

@@ -1,9 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { verifySession } from '@/lib/auth'
 
 export async function POST(req: NextRequest) {
-  const { userId } = await req.json()
-  if (!userId) return NextResponse.json({ error: '유저 ID 없음' }, { status: 400 })
+  const { userId: sessionUserId, error: authError } = await verifySession(req)
+  if (authError || !sessionUserId) {
+    return NextResponse.json({ error: authError || 'Unauthorized' }, { status: 401 })
+  }
+
+  // Use the authenticated user's ID, not a user-supplied one
+  const userId = sessionUserId
 
   const admin = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase/client'
+import { fetchWithAuth } from '@/lib/fetchWithAuth'
 
 interface CrewItem {
   id: string
@@ -89,11 +90,11 @@ export default function CrewSelectPage() {
       }
     }
 
-    const res = await fetch('/api/crew/create', {
+    const res = await fetchWithAuth('/api/crew/create', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        userId, nickname, name: crewName.trim(),
+        nickname, name: crewName.trim(),
         description: crewDesc.trim(), imageUrl, color
       })
     })
@@ -107,10 +108,10 @@ export default function CrewSelectPage() {
     if (!userId) return
     setSubmitting(true)
     setMsg('')
-    const res = await fetch('/api/crew/join-request', {
+    const res = await fetchWithAuth('/api/crew/join-request', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId, crewId, nickname })
+      body: JSON.stringify({ crewId, nickname })
     })
     const data = await res.json()
     setSubmitting(false)

@@ -75,6 +75,14 @@ export default function MyPage({
   currentUserId: string | null
 }) {
   const [uploadingAvatar, setUploadingAvatar] = useState(false)
+  const [stravaConnected, setStravaConnected] = useState(false)
+
+  useState(() => {
+    if (currentUserId) {
+      supabase.from('strava_tokens').select('id').eq('user_id', currentUserId).maybeSingle()
+        .then(({ data }) => { if (data) setStravaConnected(true) })
+    }
+  })
 
   async function handleAvatarUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -130,10 +138,6 @@ export default function MyPage({
                 <div key={i} className={`retro-exp-bar ${i < filledBars ? 'active' : ''}`} />
               ))}
             </div>
-            <div className="retro-ticket-badge">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 9a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v1a2 2 0 0 0 0 4v1a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-1a2 2 0 0 0 0-4V9z"/><path d="M9 7v10"/></svg>
-              <span>x {member.lottery_tickets || 0}</span>
-            </div>
           </div>
         </div>
 
@@ -176,25 +180,20 @@ export default function MyPage({
         </div>
       </div>
 
-      {/* 추첨권 */}
-      <div className="retro-section">
-        <div className="retro-section-header">
-          <div className="retro-section-title">추첨권</div>
-          <div className="retro-ticket-count">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#A51C30" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 9a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v1a2 2 0 0 0 0 4v1a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-1a2 2 0 0 0 0-4V9z"/><path d="M9 7v10"/></svg>
-            x {member.lottery_tickets || 0}
-          </div>
-        </div>
-        <div className="retro-ticket-info">
-          <div className="retro-ticket-row">
-            <span>챌린지 완주</span>
-            <span>= 추첨권 1개</span>
-          </div>
-          <div className="retro-ticket-row">
-            <span>정기세션 참여</span>
-            <span>= 추첨권 2개</span>
-          </div>
-          <div className="retro-ticket-desc">분기마다 추첨 후 리셋</div>
+      {/* Strava 연동 */}
+      <div className="retro-section" style={{ marginTop: 16 }}>
+        <div className="strava-connect">
+          {stravaConnected ? (
+            <div className="strava-status connected">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#27ae60" strokeWidth="2"><polyline points="20 6 9 17 4 12"/></svg>
+              Strava 연동됨
+            </div>
+          ) : (
+            <a href={`/api/strava/auth?userId=${currentUserId}`} className="strava-btn">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#FC4C02" strokeWidth="2"><polyline points="15 18 10 6 5 18"/><polyline points="18 18 15 12 12 18"/></svg>
+              Strava 연동하기
+            </a>
+          )}
         </div>
       </div>
     </div>

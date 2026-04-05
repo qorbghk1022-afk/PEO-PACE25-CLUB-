@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import type { Notification } from '@/lib/types'
+import { fetchWithAuth } from '@/lib/fetchWithAuth'
 
 export default function NotificationBell({ userId }: { userId: string | null }) {
   const [notifications, setNotifications] = useState<Notification[]>([])
@@ -15,17 +16,17 @@ export default function NotificationBell({ userId }: { userId: string | null }) 
   }, [userId])
 
   async function loadNotifications() {
-    const res = await fetch(`/api/notifications?userId=${userId}`)
+    const res = await fetchWithAuth('/api/notifications')
     const { notifications: data } = await res.json()
     setNotifications(data || [])
   }
 
   async function markAllRead() {
     if (!userId) return
-    await fetch('/api/notifications', {
+    await fetchWithAuth('/api/notifications', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId })
+      body: JSON.stringify({})
     })
     setNotifications(prev => prev.map(n => ({ ...n, is_read: true })))
   }
@@ -33,10 +34,10 @@ export default function NotificationBell({ userId }: { userId: string | null }) 
   async function handleRequest(requestId: string, action: 'approve' | 'reject') {
     if (!userId) return
     setLoading(true)
-    await fetch('/api/crew/handle-request', {
+    await fetchWithAuth('/api/crew/handle-request', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId, requestId, action })
+      body: JSON.stringify({ requestId, action })
     })
     await loadNotifications()
     setLoading(false)
@@ -90,10 +91,7 @@ export default function NotificationBell({ userId }: { userId: string | null }) 
                       onClick={() => {
                         const meta = n.metadata as Record<string, string>
                         // Find the join request by crew_id and requester
-                        fetch(`/api/notifications?userId=${userId}`).then(r => r.json()).then(() => {
-                          // Use metadata to find request - simplified: get pending requests
-                          handleRequest(meta.request_id || n.id, 'approve')
-                        })
+                        handleRequest(meta.request_id || n.id, 'approve')
                       }}
                       disabled={loading}
                     >수락</button>

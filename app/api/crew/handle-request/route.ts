@@ -1,9 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { verifySession } from '@/lib/auth'
 
 export async function POST(req: NextRequest) {
-  const { userId, requestId, action } = await req.json()
-  if (!userId || !requestId || !['approve', 'reject'].includes(action)) {
+  const { userId, error: authError } = await verifySession(req)
+  if (authError || !userId) {
+    return NextResponse.json({ error: authError || 'Unauthorized' }, { status: 401 })
+  }
+
+  const { requestId, action } = await req.json()
+  if (!requestId || !['approve', 'reject'].includes(action)) {
     return NextResponse.json({ error: '잘못된 요청' }, { status: 400 })
   }
 

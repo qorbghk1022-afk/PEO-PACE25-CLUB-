@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { verifySession } from '@/lib/auth'
 
 export async function GET(req: NextRequest) {
-  const userId = req.nextUrl.searchParams.get('userId')
-  if (!userId) return NextResponse.json({ error: 'userId 필요' }, { status: 400 })
+  const { userId, error: authError } = await verifySession(req)
+  if (authError || !userId) {
+    return NextResponse.json({ error: authError || 'Unauthorized' }, { status: 401 })
+  }
 
   const admin = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -21,15 +24,19 @@ export async function GET(req: NextRequest) {
 }
 
 export async function PATCH(req: NextRequest) {
-  const { userId, notificationIds } = await req.json()
-  if (!userId) return NextResponse.json({ error: 'userId 필요' }, { status: 400 })
+  const { userId, error: authError } = await verifySession(req)
+  if (authError || !userId) {
+    return NextResponse.json({ error: authError || 'Unauthorized' }, { status: 401 })
+  }
+
+  const { notificationIds } = await req.json()
 
   const admin = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   )
 
-  if (notificationIds) {
+  if (notificationIds && Array.isArray(notificationIds)) {
     await admin.from('notifications').update({ is_read: true }).in('id', notificationIds).eq('user_id', userId)
   } else {
     await admin.from('notifications').update({ is_read: true }).eq('user_id', userId).eq('is_read', false)

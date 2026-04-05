@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase/client'
-import type { Member, SeasonStats } from '@/lib/types'
+import type { Member, SeasonStats, RollingScores } from '@/lib/types'
+import ProfilePopup from '@/components/ProfilePopup'
 
 interface TeamMember {
   nickname: string
@@ -38,20 +39,29 @@ interface ChallengeData {
 }
 
 export default function ChallengeBoard({
-  members, seasonStats
+  members, seasonStats, rollingScores
 }: {
   members: Member[]
   seasonStats: SeasonStats[]
+  rollingScores: Record<string, RollingScores>
 }) {
   const [challenges, setChallenges] = useState<ChallengeData[]>([])
   const [currentIdx, setCurrentIdx] = useState(0)
   const [teams, setTeams] = useState<Team[]>([])
   const [period, setPeriod] = useState({ start: '', end: '', goal: 15, fine: 3000 })
   const [loading, setLoading] = useState(true)
+  const [leaderNickname, setLeaderNickname] = useState<string | null>(null)
   const [totalFine, setTotalFine] = useState(0)
   const [viewMode, setViewMode] = useState<'2week' | 'quarter' | 'all'>('2week')
   const [quarterStats, setQuarterStats] = useState<{ nickname: string; dist: number; fine: number; clears: number }[]>([])
   const [allTimeStats, setAllTimeStats] = useState<{ nickname: string; lv: number; dist: number; score: number }[]>([])
+  const [selectedProfile, setSelectedProfile] = useState<Member | null>(null)
+
+  // 크루장 닉네임 로드
+  useEffect(() => {
+    supabase.from('crew_members').select('member_nickname').eq('role', 'leader').maybeSingle()
+      .then(({ data }) => { if (data) setLeaderNickname(data.member_nickname) })
+  }, [])
 
   // 전체 챌린지 목록 로드
   useEffect(() => {
@@ -288,7 +298,7 @@ export default function ChallengeBoard({
                   <tr key={m.nickname} className={i < 3 ? `rank-top${i + 1}` : ''}>
                     <td className="rank-pos">{i + 1}</td>
                     <td>{m.lv}</td>
-                    <td className="rank-runner">{m.nickname}</td>
+                    <td className="rank-runner cb-clickable" onClick={() => { const mem = members.find(x => x.nickname === m.nickname); if (mem) setSelectedProfile(mem) }}>{m.nickname === leaderNickname ? <span className="leader-name">{'>'} {m.nickname} {'<'}</span> : m.nickname}</td>
                     <td className="rank-score">{m.score.toFixed(1)}</td>
                     <td>{m.dist.toFixed(1)}</td>
                   </tr>
@@ -332,7 +342,7 @@ export default function ChallengeBoard({
                     <tr key={m.nickname}>
                       <td>{mem?.lv || 0}</td>
                       <td className="rank-pos">{i + 1}</td>
-                      <td className="rank-runner">{m.nickname}</td>
+                      <td className="rank-runner cb-clickable" onClick={() => { const mem = members.find(x => x.nickname === m.nickname); if (mem) setSelectedProfile(mem) }}>{m.nickname === leaderNickname ? <span className="leader-name">{'>'} {m.nickname} {'<'}</span> : m.nickname}</td>
                       <td>{m.dist.toFixed(1)}</td>
                       <td>{m.fine > 0 ? m.fine.toLocaleString() : '-'}</td>
                       <td className="cb-ticket">
@@ -391,7 +401,7 @@ export default function ChallengeBoard({
                 <tr key={`${team.team_num}-${m.nickname}`} className={team.team_num === -1 ? 'cb-rest-row' : ''}>
                   <td>{m.lv}</td>
                   {mi === 0 && <td rowSpan={team.members.length} className="cb-team-cell">{team.team_num === -1 ? '-' : team.team_num}</td>}
-                  <td>{m.nickname}</td>
+                  <td className="rank-runner cb-clickable" onClick={() => { const mem = members.find(x => x.nickname === m.nickname); if (mem) setSelectedProfile(mem) }}>{m.nickname === leaderNickname ? <span className="leader-name">{'>'} {m.nickname} {'<'}</span> : m.nickname}</td>
                   <td>{m.dist.toFixed(1)}</td>
                   <td>{m.remain.toFixed(1)}</td>
                   <td>{m.fine.toLocaleString()}</td>
@@ -409,6 +419,16 @@ export default function ChallengeBoard({
         <div className="cb-total-value">₩{totalFine.toLocaleString()}</div>
       </div>
       </>
+      )}
+
+      {/* 프로필 팝업 */}
+      {selectedProfile && (
+        <ProfilePopup
+          member={selectedProfile}
+          stats={seasonStats.find(s => s.member_nickname === selectedProfile.nickname)}
+          rolling={rollingScores[selectedProfile.nickname]}
+          onClose={() => setSelectedProfile(null)}
+        />
       )}
     </div>
   )

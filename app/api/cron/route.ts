@@ -1,13 +1,203 @@
+/**
+ * GET /api/cron
+ * Daily cron job (Vercel: 0 14 * * * = 23:00 KST)
+ *
+ * 1. Sync latest activity data from Google Sheets (1기)
+ * 2. Trigger Strava sync (2기)
+ * 3. If the current challenge has ended, close it:
+ *    - Calculate Q-scores for the ended period
+ *    - Create a new 2-week challenge
+ *    - Auto-assign teams by Q-score ranking
+ */
 import { NextResponse } from 'next/server'
+import { createServiceClient } from '@/lib/supabase/server'
+import {
+  calcSpeedScore,
+  calcEnduranceScore,
+  calcLongRunScore,
+  calcConsistencyScore,
+  calcEfficiencyScore,
+  calcTotalScore,
+  parseTimeStr,
+  parsePaceStr,
+} from '@/lib/scoring'
 
-// Vercel Cron: 14:00 UTC = 23:00 KST 매일 스트라바 동기화
-// vercel.json: { "crons": [{ "path": "/api/cron", "schedule": "0 14 * * *" }] }
+// Google Sheets public CSV export
+const SHEET_ID = '1gdEsbzlsIoqo0lEsM3b23VJqsNZwZRW48Z3GATpgaIM'
+const SHEET_CSV_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=0`
+
+// HRC crew ID (default)
+const HRC_CREW_ID = '2891fdd5-545b-4144-81f6-229df8dd5457'
+
+// Nickname corrections
+const NICKNAME_FIXES: Record<string, string> = {
+  '원': '진원',
+  '키가케인던스': '키가케이던스',
+}
+
+// REST members excluded from team goal calculation
+const REST_MEMBERS: Record<string, Record<string, string>> = {
+  '갤러리킴': { '2026-03-09': '병가', '2026-03-23': '병가' },
+  '꾸마': { '2026-03-09': '출산휴가', '2026-03-23': '출산휴가' },
+}
+
 export async function GET(request: Request) {
   const authHeader = request.headers.get('authorization')
   if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
+  const db = createServiceClient()
+  const log: string[] = []
+
+  try {
+    // ─── Step 1: Sync Google Sheets activity data (1기) ───
+    const sheetResult = await syncGoogleSheet(db, log)
+
+    // ─── Step 2: Trigger Strava sync (2기) ───
+    const stravaResult = await triggerStravaSync(log)
+
+    // ─── Step 3: Check if current challenge has ended ───
+    const challengeResult = await handleChallengeRotation(db, log)
+
+    // ─── Step 4: Log ───
+    await db.from('sync_logs').insert({
+      activity_count: sheetResult.count,
+      status: 'success',
+      message: log.join(' | '),
+    })
+
+    return NextResponse.json({
+      success: true,
+      sheet: sheetResult,
+      strava: stravaResult,
+      challenge: challengeResult,
+      log,
+    })
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error)
+    log.push(`ERROR: ${msg}`)
+    await db.from('sync_logs').insert({
+      activity_count: 0,
+      status: 'error',
+      message: log.join(' | '),
+    })
+    return NextResponse.json({ error: msg, log }, { status: 500 })
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+// Google Sheets sync (1기 raw activity data)
+// ═══════════════════════════════════════════════════════════
+async function syncGoogleSheet(
+  db: ReturnType<typeof createServiceClient>,
+  log: string[],
+) {
+  try {
+    const res = await fetch(SHEET_CSV_URL)
+    if (!res.ok) throw new Error(`Sheet fetch failed: ${res.status}`)
+    const csv = await res.text()
+    const rows = parseCSV(csv)
+    if (rows.length < 2) {
+      log.push('Sheet: no data rows')
+      return { count: 0 }
+    }
+
+    // Header: 날짜, 회원 ID, 거리(KM), 케이던스, 시간, 평균페이스, 메모
+    const header = rows[0]
+    const dateIdx = header.findIndex(h => h.includes('날짜'))
+    const nickIdx = header.findIndex(h => h.includes('회원'))
+    const distIdx = header.findIndex(h => h.includes('거리'))
+    const timeIdx = header.findIndex(h => h.includes('시간'))
+    const paceIdx = header.findIndex(h => h.includes('페이스'))
+
+    if (dateIdx < 0 || nickIdx < 0 || distIdx < 0) {
+      log.push('Sheet: header mismatch')
+      return { count: 0 }
+    }
+
+    // Ensure all referenced members exist
+    const { data: existingMembers } = await db
+      .from('members')
+      .select('nickname')
+    const memberSet = new Set((existingMembers || []).map(m => m.nickname))
+
+    let upsertCount = 0
+    const batch: Array<Record<string, unknown>> = []
+
+    for (let i = 1; i < rows.length; i++) {
+      const row = rows[i]
+      if (!row[dateIdx] || !row[nickIdx]) continue
+
+      let nickname = row[nickIdx].trim()
+      if (NICKNAME_FIXES[nickname]) nickname = NICKNAME_FIXES[nickname]
+      if (!nickname) continue
+
+      const dateStr = normalizeDate(row[dateIdx].trim())
+      if (!dateStr) continue
+
+      const distKm = parseFloat(row[distIdx]) || 0
+      if (distKm <= 0) continue
+
+      const timeStr = row[timeIdx]?.trim() || ''
+      const paceStr = row[paceIdx]?.trim() || ''
+      const movingSec = parseTimeStr(timeStr)
+      const avgPaceSec = paceStr ? parsePaceStr(paceStr) : (distKm > 0 && movingSec > 0 ? Math.round(movingSec / distKm) : 0)
+      const efficiency = movingSec > 0 ? movingSec / (movingSec * 1.05) : 1 // approximate (no elapsed for sheet data)
+
+      // Auto-create member if missing
+      if (!memberSet.has(nickname)) {
+        await db.from('members').insert({ nickname, is_active: true })
+        memberSet.add(nickname)
+      }
+
+      batch.push({
+        member_nickname: nickname,
+        date: dateStr,
+        distance_km: distKm,
+        moving_time_sec: movingSec || null,
+        elapsed_time_sec: movingSec || null,
+        avg_pace_sec: avgPaceSec || null,
+        efficiency,
+        sport_type: 'Run',
+        activity_name: `Sheet sync ${dateStr}`,
+      })
+    }
+
+    // Upsert in chunks (avoid duplicate key on member_nickname+date combo)
+    // Since sheet data has no strava_activity_id, we use insert with on-conflict skip
+    // Group by member+date and keep only the latest/largest distance
+    const deduped = dedupeActivities(batch)
+
+    for (const row of deduped) {
+      // Check if activity already exists for this member+date+distance
+      const { data: existing } = await db
+        .from('activities')
+        .select('id')
+        .eq('member_nickname', row.member_nickname as string)
+        .eq('date', row.date as string)
+        .eq('distance_km', row.distance_km as number)
+        .limit(1)
+
+      if (existing && existing.length > 0) continue
+
+      const { error } = await db.from('activities').insert(row)
+      if (!error) upsertCount++
+    }
+
+    log.push(`Sheet: ${upsertCount} new activities synced`)
+    return { count: upsertCount }
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e)
+    log.push(`Sheet error: ${msg}`)
+    return { count: 0 }
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+// Strava sync (2기) — delegates to existing /api/strava/sync
+// ═══════════════════════════════════════════════════════════
+async function triggerStravaSync(log: string[]) {
   try {
     const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'
     const res = await fetch(`${baseUrl}/api/strava/sync`, {
@@ -18,8 +208,411 @@ export async function GET(request: Request) {
       },
     })
     const data = await res.json()
-    return NextResponse.json({ success: true, ...data })
-  } catch (error) {
-    return NextResponse.json({ error: String(error) }, { status: 500 })
+    log.push(`Strava: ${data.synced ?? 0} activities synced`)
+    return data
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e)
+    log.push(`Strava error: ${msg}`)
+    return { error: msg }
   }
+}
+
+// ═══════════════════════════════════════════════════════════
+// Challenge rotation: end current → score → new challenge → teams
+// ═══════════════════════════════════════════════════════════
+async function handleChallengeRotation(
+  db: ReturnType<typeof createServiceClient>,
+  log: string[],
+) {
+  const today = new Date().toISOString().slice(0, 10)
+
+  // Find the most recent challenge that has ended
+  const { data: endedChallenge } = await db
+    .from('challenges')
+    .select('*, seasons!inner(id, generation, start_date, end_date, is_current)')
+    .lt('end_date', today)
+    .order('end_date', { ascending: false })
+    .limit(1)
+    .single()
+
+  // Check if there is already a challenge that covers today or the future
+  const { data: futureChallenge } = await db
+    .from('challenges')
+    .select('id')
+    .gte('end_date', today)
+    .limit(1)
+
+  if (futureChallenge && futureChallenge.length > 0) {
+    log.push('Challenge: current/future challenge exists, no rotation needed')
+    return { rotated: false }
+  }
+
+  if (!endedChallenge) {
+    log.push('Challenge: no ended challenge found, skipping rotation')
+    return { rotated: false }
+  }
+
+  log.push(`Challenge: rotating from ${endedChallenge.start_date}~${endedChallenge.end_date}`)
+
+  // ─── Calculate Q-scores for the ended challenge period ───
+  const scores = await calcPeriodScores(
+    db,
+    endedChallenge.start_date,
+    endedChallenge.end_date,
+  )
+  log.push(`Scores: calculated for ${scores.length} members`)
+
+  // Save scores to member_season_stats
+  const seasonId = endedChallenge.season_id
+  for (let i = 0; i < scores.length; i++) {
+    const s = scores[i]
+    await db.from('member_season_stats').upsert(
+      {
+        member_nickname: s.nickname,
+        season_id: seasonId,
+        distance_km: s.distance_km,
+        longest_run_km: s.longest_run_km,
+        avg_pace_sec: s.avg_pace_sec,
+        days_run: s.days_run,
+        efficiency: s.efficiency,
+        speed_score: s.speed_score,
+        endurance_score: s.endurance_score,
+        longrun_score: s.longrun_score,
+        consistency_score: s.consistency_score,
+        efficiency_score: s.efficiency_score,
+        total_score: s.total_score,
+        rank: i + 1,
+      },
+      { onConflict: 'member_nickname,season_id' },
+    )
+  }
+
+  // ─── Create new season + challenge ───
+  const endedEnd = new Date(endedChallenge.end_date)
+  const newStart = new Date(endedEnd)
+  newStart.setDate(newStart.getDate() + 1)
+  const newEnd = new Date(newStart)
+  newEnd.setDate(newEnd.getDate() + 13) // 14 days total (start + 13)
+
+  const newStartStr = toDateStr(newStart)
+  const newEndStr = toDateStr(newEnd)
+
+  // Determine generation number
+  const prevGen = endedChallenge.seasons?.generation ?? 1
+  const newGen = prevGen + 1
+
+  // Mark old season as not current
+  await db.from('seasons').update({ is_current: false }).eq('id', seasonId)
+
+  // Create new season
+  const { data: newSeason, error: seasonErr } = await db
+    .from('seasons')
+    .insert({
+      generation: newGen,
+      start_date: newStartStr,
+      end_date: newEndStr,
+      is_current: true,
+    })
+    .select('id')
+    .single()
+
+  if (seasonErr || !newSeason) {
+    log.push(`Season create error: ${seasonErr?.message}`)
+    return { rotated: false, error: seasonErr?.message }
+  }
+
+  // Create new challenge
+  const { data: newChallenge, error: challengeErr } = await db
+    .from('challenges')
+    .insert({
+      season_id: newSeason.id,
+      goal_km: 15,
+      fine_per_km: 3000,
+      start_date: newStartStr,
+      end_date: newEndStr,
+    })
+    .select('id')
+    .single()
+
+  if (challengeErr || !newChallenge) {
+    log.push(`Challenge create error: ${challengeErr?.message}`)
+    return { rotated: false, error: challengeErr?.message }
+  }
+
+  log.push(`New challenge: ${newStartStr}~${newEndStr} (season ${newGen})`)
+
+  // ─── Auto-assign teams by Q-score ranking ───
+  const teamAssignments = await assignTeams(
+    db,
+    newChallenge.id,
+    newStartStr,
+    scores,
+    log,
+  )
+
+  return {
+    rotated: true,
+    ended: {
+      start: endedChallenge.start_date,
+      end: endedChallenge.end_date,
+      scores: scores.length,
+    },
+    newChallenge: {
+      id: newChallenge.id,
+      start: newStartStr,
+      end: newEndStr,
+    },
+    teams: teamAssignments,
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+// Calculate Q-scores for a date range
+// ═══════════════════════════════════════════════════════════
+async function calcPeriodScores(
+  db: ReturnType<typeof createServiceClient>,
+  startDate: string,
+  endDate: string,
+) {
+  const { data: activities } = await db
+    .from('activities')
+    .select(
+      'member_nickname, distance_km, avg_pace_sec, moving_time_sec, elapsed_time_sec, date',
+    )
+    .gte('date', startDate)
+    .lte('date', endDate)
+
+  if (!activities || activities.length === 0) return []
+
+  // Aggregate per member
+  const stats: Record<
+    string,
+    {
+      dist: number
+      longest: number
+      paceSecs: number[]
+      days: Set<string>
+      moving: number
+      elapsed: number
+    }
+  > = {}
+
+  for (const a of activities) {
+    const nick = a.member_nickname
+    if (!stats[nick]) {
+      stats[nick] = {
+        dist: 0,
+        longest: 0,
+        paceSecs: [],
+        days: new Set(),
+        moving: 0,
+        elapsed: 0,
+      }
+    }
+    const s = stats[nick]
+    s.dist += a.distance_km
+    s.longest = Math.max(s.longest, a.distance_km)
+    if (a.avg_pace_sec > 0) s.paceSecs.push(a.avg_pace_sec)
+    s.days.add(a.date)
+    s.moving += a.moving_time_sec || 0
+    s.elapsed += a.elapsed_time_sec || a.moving_time_sec || 0
+  }
+
+  const results = Object.entries(stats).map(([nickname, s]) => {
+    const avgPace =
+      s.paceSecs.length > 0
+        ? Math.round(s.paceSecs.reduce((a, b) => a + b) / s.paceSecs.length)
+        : 0
+    const eff = s.elapsed > 0 ? s.moving / s.elapsed : 1
+    const daysRun = s.days.size
+
+    const speed_score = calcSpeedScore(avgPace)
+    const endurance_score = calcEnduranceScore(s.dist)
+    const longrun_score = calcLongRunScore(s.longest)
+    const consistency_score = calcConsistencyScore(daysRun)
+    const efficiency_score = calcEfficiencyScore(eff)
+    const total_score = calcTotalScore({
+      speed: speed_score,
+      endurance: endurance_score,
+      longRun: longrun_score,
+      consistency: consistency_score,
+      efficiency: efficiency_score,
+    })
+
+    return {
+      nickname,
+      distance_km: s.dist,
+      longest_run_km: s.longest,
+      avg_pace_sec: avgPace,
+      days_run: daysRun,
+      efficiency: eff,
+      speed_score,
+      endurance_score,
+      longrun_score,
+      consistency_score,
+      efficiency_score,
+      total_score,
+    }
+  })
+
+  // Sort by total_score descending
+  results.sort((a, b) => b.total_score - a.total_score)
+  return results
+}
+
+// ═══════════════════════════════════════════════════════════
+// Auto-assign teams: rank 1-2 → team 1, rank 3-4 → team 2, etc.
+// REST_MEMBERS with active reasons are excluded from team goals
+// but still assigned to teams.
+// ═══════════════════════════════════════════════════════════
+async function assignTeams(
+  db: ReturnType<typeof createServiceClient>,
+  challengeId: string,
+  challengeStartDate: string,
+  scores: Array<{ nickname: string; total_score: number }>,
+  log: string[],
+) {
+  // Get all active members in the crew
+  const { data: crewMembers } = await db
+    .from('crew_members')
+    .select('member_nickname')
+    .eq('crew_id', HRC_CREW_ID)
+
+  // If no crew_members table or no results, fall back to active members
+  let memberNicknames: string[]
+  if (crewMembers && crewMembers.length > 0) {
+    memberNicknames = crewMembers.map(cm => cm.member_nickname)
+  } else {
+    const { data: allMembers } = await db
+      .from('members')
+      .select('nickname')
+      .eq('is_active', true)
+    memberNicknames = (allMembers || []).map(m => m.nickname)
+  }
+
+  // Build ranked list: members with scores first (by rank), then unscored
+  const scoredSet = new Set(scores.map(s => s.nickname))
+  const ranked: string[] = [
+    ...scores.filter(s => memberNicknames.includes(s.nickname)).map(s => s.nickname),
+    ...memberNicknames.filter(n => !scoredSet.has(n)),
+  ]
+
+  // Exclude REST members from ranking (they get team -1 effectively)
+  const activeRanked = ranked.filter(
+    n => !REST_MEMBERS[n]?.[challengeStartDate],
+  )
+  const restNicknames = ranked.filter(
+    n => !!REST_MEMBERS[n]?.[challengeStartDate],
+  )
+
+  // Assign: every 2 members = 1 team
+  const teamAssignments: Array<{
+    team_num: number
+    member_nickname: string
+  }> = []
+
+  for (let i = 0; i < activeRanked.length; i++) {
+    const teamNum = Math.floor(i / 2) + 1
+    teamAssignments.push({
+      team_num: teamNum,
+      member_nickname: activeRanked[i],
+    })
+  }
+
+  // REST members still go into the DB but won't affect goal calc
+  // They are assigned to a virtual team 0 (displayed as '-' in UI)
+  for (const nick of restNicknames) {
+    teamAssignments.push({ team_num: 0, member_nickname: nick })
+  }
+
+  // Insert into challenge_teams
+  if (teamAssignments.length > 0) {
+    const rows = teamAssignments.map(a => ({
+      challenge_id: challengeId,
+      team_num: a.team_num,
+      member_nickname: a.member_nickname,
+    }))
+    const { error } = await db.from('challenge_teams').insert(rows)
+    if (error) {
+      log.push(`Team assign error: ${error.message}`)
+    } else {
+      const numTeams = Math.max(
+        ...teamAssignments.filter(a => a.team_num > 0).map(a => a.team_num),
+        0,
+      )
+      log.push(
+        `Teams: ${activeRanked.length} members → ${numTeams} teams, ${restNicknames.length} resting`,
+      )
+    }
+  }
+
+  return teamAssignments
+}
+
+// ═══════════════════════════════════════════════════════════
+// Utility functions
+// ═══════════════════════════════════════════════════════════
+
+/** Parse CSV text into rows of string arrays */
+function parseCSV(text: string): string[][] {
+  const lines = text.split('\n')
+  return lines
+    .map(line => {
+      const result: string[] = []
+      let current = ''
+      let inQuotes = false
+      for (let i = 0; i < line.length; i++) {
+        const ch = line[i]
+        if (inQuotes) {
+          if (ch === '"' && line[i + 1] === '"') {
+            current += '"'
+            i++
+          } else if (ch === '"') {
+            inQuotes = false
+          } else {
+            current += ch
+          }
+        } else {
+          if (ch === '"') {
+            inQuotes = true
+          } else if (ch === ',') {
+            result.push(current)
+            current = ''
+          } else {
+            current += ch
+          }
+        }
+      }
+      result.push(current.replace(/\r$/, ''))
+      return result
+    })
+    .filter(row => row.some(cell => cell.trim() !== ''))
+}
+
+/** Normalize date string to YYYY-MM-DD */
+function normalizeDate(s: string): string | null {
+  // Already YYYY-MM-DD
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s
+  // YYYY/MM/DD or YYYY.MM.DD
+  const m = s.match(/^(\d{4})[/.](\d{1,2})[/.](\d{1,2})$/)
+  if (m) return `${m[1]}-${m[2].padStart(2, '0')}-${m[3].padStart(2, '0')}`
+  return null
+}
+
+/** Date to YYYY-MM-DD */
+function toDateStr(d: Date): string {
+  return d.toISOString().slice(0, 10)
+}
+
+/** Deduplicate activities: keep all unique member+date+distance combos */
+function dedupeActivities(
+  rows: Array<Record<string, unknown>>,
+): Array<Record<string, unknown>> {
+  const seen = new Set<string>()
+  return rows.filter(r => {
+    const key = `${r.member_nickname}|${r.date}|${r.distance_km}`
+    if (seen.has(key)) return false
+    seen.add(key)
+    return true
+  })
 }

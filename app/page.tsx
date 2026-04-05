@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase/client'
+import { fetchWithAuth } from '@/lib/fetchWithAuth'
 import type { Member, SeasonStats, Season, RollingScores } from '@/lib/types'
 import MyPage from '@/components/MyPage'
 import ChallengeBoard from '@/components/ChallengeBoard'
@@ -64,6 +65,14 @@ export default function Home() {
       if (!session) { router.push('/login'); return }
       setCurrentUserId(session.user.id)
 
+      // 온보딩 체크
+      const { data: myMem } = await supabase
+        .from('members').select('egg_config').eq('user_id', session.user.id).maybeSingle()
+      if (myMem && (!myMem.egg_config || !myMem.egg_config.pattern)) {
+        router.push('/onboarding')
+        return
+      }
+
       // 크루 소속 체크
       const { data: crewMembers } = await supabase
         .from('crew_members').select('crew_id').eq('user_id', session.user.id)
@@ -84,6 +93,20 @@ export default function Home() {
       if (crew) setCrewName(crew.name)
 
       loadData(session.user.id, activeCrewId)
+
+      // 푸시 알림 구독
+      if ('serviceWorker' in navigator && 'PushManager' in window) {
+        navigator.serviceWorker.register('/sw.js').then(async reg => {
+          const sub = await reg.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY
+          })
+          fetchWithAuth('/api/push/subscribe', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ subscription: sub.toJSON() })
+          })
+        }).catch(() => {})
+      }
     })
   }, [])
 
@@ -208,6 +231,7 @@ export default function Home() {
         )}
         <button className="side-menu-item" onClick={() => { setMenuOpen(false); setActiveTab('MY') }}>내 정보</button>
         <button className="side-menu-item" onClick={() => { setMenuOpen(false); router.push('/crew-select') }}>크루 찾기 / 전환</button>
+        <button className="side-menu-item" onClick={() => { setMenuOpen(false); router.push('/crew-admin') }}>크루 관리</button>
         <div className="side-menu-divider" />
         <a href="/policy/terms" className="side-menu-item">서비스 이용약관</a>
         <a href="/policy/privacy" className="side-menu-item">개인정보 처리방침</a>
@@ -218,7 +242,7 @@ export default function Home() {
       </div>
       <main className="tab-content">
         {activeTab === '챌린지' && (
-          <ChallengeBoard members={members} seasonStats={seasonStats} />
+          <ChallengeBoard members={members} seasonStats={seasonStats} rollingScores={rollingScores} />
         )}
         {activeTab === '추첨' && (
           <SeasonDraw member={currentMember} members={members} />

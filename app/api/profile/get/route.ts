@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import crypto from 'crypto'
+import { verifySession } from '@/lib/auth'
 
 function decrypt(encoded: string): string {
   try {
@@ -18,8 +19,13 @@ function decrypt(encoded: string): string {
 }
 
 export async function GET(req: NextRequest) {
-  const userId = req.nextUrl.searchParams.get('userId')
-  if (!userId) return NextResponse.json({ error: '유저 ID 없음' }, { status: 400 })
+  const { userId: sessionUserId, error: authError } = await verifySession(req)
+  if (authError || !sessionUserId) {
+    return NextResponse.json({ error: authError || 'Unauthorized' }, { status: 401 })
+  }
+
+  // Users can only access their own profile
+  const userId = sessionUserId
 
   const admin = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,

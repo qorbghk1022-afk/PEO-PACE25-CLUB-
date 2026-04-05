@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import crypto from 'crypto'
+import { verifySession } from '@/lib/auth'
 
 function encrypt(text: string): string {
   const key = Buffer.from(process.env.ENCRYPTION_KEY!, 'hex')
@@ -12,9 +13,15 @@ function encrypt(text: string): string {
 }
 
 export async function POST(req: NextRequest) {
-  const { userId, realName, phone, address, privacyAgreed, stravaAgreed } = await req.json()
+  const { userId: sessionUserId, error: authError } = await verifySession(req)
+  if (authError || !sessionUserId) {
+    return NextResponse.json({ error: authError || 'Unauthorized' }, { status: 401 })
+  }
 
-  if (!userId || !privacyAgreed) {
+  const { realName, phone, address, privacyAgreed, stravaAgreed } = await req.json()
+  const userId = sessionUserId
+
+  if (!privacyAgreed) {
     return NextResponse.json({ error: '필수 항목 누락' }, { status: 400 })
   }
 

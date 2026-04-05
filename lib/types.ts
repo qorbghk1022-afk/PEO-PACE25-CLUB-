@@ -13,6 +13,7 @@ export type Member = {
   avatar_url: string | null
   lottery_tickets: number
   created_at: string | null
+  egg_config: { pattern: string; color: string; eyes: string } | null
 }
 
 export type SeasonStats = {

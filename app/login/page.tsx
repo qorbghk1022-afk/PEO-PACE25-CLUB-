@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase/client'
+import { fetchWithAuth } from '@/lib/fetchWithAuth'
 
 function EyeIcon() {
   return (
@@ -124,8 +125,14 @@ export default function LoginPage() {
       setNicknameMsg('✗ 이미 가입된 닉네임이에요')
       setNicknameChecked(false)
     } else {
-      setNicknameMsg('✓ 기존 크루원으로 확인됐어요')
-      setNicknameChecked(true)
+      const ok = confirm(`"${nickname.trim()}" 기존 크루원 데이터가 있습니다.\n기존 데이터(LV, 거리, 기록)와 연동하시겠습니까?`)
+      if (ok) {
+        setNicknameMsg('✓ 기존 크루원 데이터와 연동됩니다')
+        setNicknameChecked(true)
+      } else {
+        setNicknameMsg('연동을 취소했습니다. 다른 닉네임을 입력해주세요')
+        setNicknameChecked(false)
+      }
     }
   }
 
@@ -188,10 +195,10 @@ export default function LoginPage() {
     if (!userId) { setError('계정 정보를 가져올 수 없어요'); setLoading(false); return }
 
     const fullAddress = addressDetail ? `${address} ${addressDetail}` : address
-    const res = await fetch('/api/signup-complete', {
+    const res = await fetchWithAuth('/api/signup-complete', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId, nickname: nickname.trim(), realName, phone, address: fullAddress, privacyAgreed, stravaAgreed }),
+      body: JSON.stringify({ nickname: nickname.trim(), realName, phone, address: fullAddress, privacyAgreed, stravaAgreed }),
     })
     if (!res.ok) {
       const { error: apiErr } = await res.json().catch(() => ({ error: '알 수 없는 오류' }))

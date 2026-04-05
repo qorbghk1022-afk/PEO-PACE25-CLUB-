@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import crypto from 'crypto'
+import { verifySession } from '@/lib/auth'
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -18,10 +19,16 @@ function encrypt(text: string): string {
 
 export async function POST(req: NextRequest) {
   try {
-    const { userId, nickname, realName, phone, address, privacyAgreed, stravaAgreed } = await req.json()
+    const { userId: sessionUserId, error: authError } = await verifySession(req)
+    if (authError || !sessionUserId) {
+      return NextResponse.json({ error: authError || 'Unauthorized' }, { status: 401 })
+    }
 
-    if (!userId || !nickname) {
-      return NextResponse.json({ error: 'userId와 nickname이 필요해요' }, { status: 400 })
+    const { nickname, realName, phone, address, privacyAgreed, stravaAgreed } = await req.json()
+    const userId = sessionUserId
+
+    if (!nickname) {
+      return NextResponse.json({ error: 'nickname이 필요해요' }, { status: 400 })
     }
 
     // members 테이블 — 기존 row 있으면 user_id 연결, 없으면 신규 삽입
@@ -40,7 +47,7 @@ export async function POST(req: NextRequest) {
     } else {
       const { error: insertErr } = await supabaseAdmin
         .from('members')
-        .insert({ nickname, user_id: userId, egg_type: 'star', is_active: true })
+        .insert({ nickname, user_id: userId, egg_type: 'star', egg_config: {}, is_active: true })
       if (insertErr) return NextResponse.json({ error: insertErr.message }, { status: 500 })
     }
 

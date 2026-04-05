@@ -838,7 +838,7 @@ html, body {
 /* 챌린지보드 (레거시 - 미사용) */
 
 /* 캘린더 */
-.calendar-page { padding-bottom: 20px; }
+.calendar-page { padding-bottom: 20px; font-family: 'RoundedFixedsys', monospace; }
 .calendar-container { background: white; border-radius: var(--radius); padding: 16px; box-shadow: var(--shadow); }
 .calendar-nav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
 .calendar-nav button { background: none; border: none; font-size: 18px; cursor: pointer; padding: 4px 8px; color: var(--accent); }
@@ -1560,13 +1560,14 @@ html, body {
   border-right: none;
 }
 .cb-table td {
-  padding: 10px 8px;
+  padding: 10px 6px;
   text-align: center;
   border-bottom: 1px solid #ddd;
   border-right: 1px solid #ddd;
   color: #333;
   font-weight: 500;
-  font-size: 14px;
+  font-size: 13px;
+  white-space: nowrap;
 }
 .cb-table td:last-child {
   border-right: none;
@@ -1790,41 +1791,24 @@ html, body {
   display: flex; justify-content: space-between; font-size: 11px; color: #888; padding: 3px 0;
 }
 
-/* 뽑기 머신 - 가챠 */
+/* 가챠 머신 */
 .draw-machine-area { text-align: center; margin: 20px 0; }
-.draw-gacha {
-  width: 220px; height: 280px; margin: 0 auto; position: relative; cursor: pointer;
+.gacha-wrap { display: flex; flex-direction: column; align-items: center; }
+.gacha-svg { width: 220px; cursor: pointer; }
+.gacha-shake { animation: gachaShake 0.12s infinite; }
+@keyframes gachaShake {
+  0%, 100% { transform: translateX(0) rotate(0); }
+  25% { transform: translateX(-5px) rotate(-2deg); }
+  75% { transform: translateX(5px) rotate(2deg); }
 }
-.draw-gacha.shaking { animation: machineShake 0.1s infinite; }
-@keyframes machineShake {
-  0%, 100% { transform: translateX(0); }
-  25% { transform: translateX(-5px) rotate(-1deg); }
-  75% { transform: translateX(5px) rotate(1deg); }
-}
-.draw-gacha-img {
-  width: 100%; height: 100%; object-fit: contain;
-  image-rendering: pixelated;
-}
-.draw-gacha-balls {
-  position: absolute;
-  top: 10%; left: 18%; width: 64%; height: 50%;
-  pointer-events: none;
-}
-.draw-gacha-ball {
-  width: 20px; height: 20px; border-radius: 50%; position: absolute;
-  border: 2px solid rgba(255,255,255,0.3);
-  box-shadow: inset -2px -2px 4px rgba(0,0,0,0.3), 1px 1px 3px rgba(255,255,255,0.3);
-}
-.draw-gacha-ball.bouncing {
-  animation: ballBounce 0.25s infinite;
-}
-@keyframes ballBounce {
+.gacha-ball-bounce { animation: gachaBall 0.2s infinite; }
+@keyframes gachaBall {
   0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-12px); }
+  50% { transform: translateY(-6px); }
 }
-.draw-ticket-count {
-  display: flex; align-items: center; justify-content: center; gap: 6px;
-  font-size: 20px; font-weight: 700; color: #333; margin-top: 4px;
+.gacha-label {
+  margin-top: 10px; font-size: 13px; color: #A51C30; font-weight: 700;
+  font-family: 'RoundedFixedsys', monospace;
 }
 .draw-machine-label {
   margin-top: 6px; font-size: 12px; color: #999;
@@ -1848,6 +1832,176 @@ html, body {
 .draw-result-name { flex: 1; font-weight: 700; }
 .draw-result-prize { font-size: 12px; color: #666; }
 .draw-result-next { text-align: center; margin-top: 16px; font-size: 12px; color: #999; }
+
+/* ============================
+   온보딩 - 알 선택
+   ============================ */
+/* ============================
+   프로필 팝업
+   ============================ */
+/* ============================
+   크루 관리
+   ============================ */
+/* Strava 연동 */
+.strava-connect { padding: 14px 16px; text-align: center; }
+.strava-btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 12px 24px; border-radius: 10px;
+  background: #fff; border: 2px solid #FC4C02; color: #FC4C02;
+  font-size: 14px; font-weight: 700; text-decoration: none;
+  font-family: 'RoundedFixedsys', monospace;
+}
+.strava-status {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 14px; font-weight: 600; color: #27ae60;
+  font-family: 'RoundedFixedsys', monospace;
+}
+
+.admin-page { min-height: 100vh; background: #fff; max-width: 480px; margin: 0 auto; font-family: 'RoundedFixedsys', monospace; }
+.admin-header { height: 64px; padding: 0 16px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #eee; }
+.admin-title { font-size: 18px; font-weight: 700; }
+.admin-tabs { display: flex; border-bottom: 2px solid #eee; }
+.admin-tab { flex: 1; padding: 12px 0; border: none; background: none; font-size: 13px; font-weight: 600; color: #999; cursor: pointer; font-family: 'RoundedFixedsys', monospace; }
+.admin-tab.active { color: #A51C30; border-bottom: 2px solid #A51C30; margin-bottom: -2px; }
+.admin-body { padding: 16px; }
+.admin-member-row { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid #f0f0f0; }
+.admin-member-info { display: flex; flex-direction: column; gap: 2px; }
+.admin-member-name { font-size: 15px; font-weight: 600; }
+.admin-member-sub { font-size: 11px; color: #999; }
+.admin-kick-btn { padding: 6px 12px; border-radius: 6px; border: 1px solid #e53935; background: none; color: #e53935; font-size: 12px; cursor: pointer; }
+.admin-request-row { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid #f0f0f0; }
+.admin-request-actions { display: flex; gap: 6px; }
+.admin-approve-btn { padding: 6px 14px; border-radius: 6px; border: none; background: #333; color: #fff; font-size: 12px; cursor: pointer; }
+.admin-reject-btn { padding: 6px 14px; border-radius: 6px; border: 1px solid #ddd; background: none; color: #666; font-size: 12px; cursor: pointer; }
+.admin-empty { text-align: center; color: #999; padding: 40px; font-size: 14px; }
+.admin-action-btn { display: block; width: 100%; padding: 14px; margin-bottom: 10px; border: 2px solid #333; border-radius: 10px; background: none; font-size: 14px; font-weight: 600; cursor: pointer; font-family: 'RoundedFixedsys', monospace; }
+.admin-loading { min-height: 100vh; display: flex; align-items: center; justify-content: center; }
+
+.pp-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.5);
+  display: flex; align-items: center; justify-content: center; z-index: 100;
+}
+.pp-card {
+  background: #fff; border-radius: 20px; width: 280px; overflow: hidden;
+  box-shadow: 0 8px 30px rgba(0,0,0,0.2); position: relative;
+  font-family: 'RoundedFixedsys', monospace;
+}
+.pp-close {
+  position: absolute; top: 10px; right: 14px; background: none; border: none;
+  font-size: 18px; cursor: pointer; color: #999; z-index: 1;
+}
+.pp-top {
+  height: 100px; display: flex; align-items: center; justify-content: center;
+}
+.pp-avatar { width: 72px; height: 72px; border-radius: 50%; object-fit: cover; border: 3px solid #fff; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+.pp-info { text-align: center; padding: 12px 0 8px; }
+.pp-lv { font-size: 12px; color: #A51C30; font-weight: 700; }
+.pp-name { font-size: 20px; font-weight: 700; color: #111; }
+.pp-stats {
+  display: flex; justify-content: space-around; padding: 10px 16px;
+  border-top: 1px solid #eee; border-bottom: 1px solid #eee;
+}
+.pp-stat { text-align: center; }
+.pp-stat-val { display: block; font-size: 15px; font-weight: 700; color: #A51C30; }
+.pp-stat-label { display: block; font-size: 10px; color: #999; margin-top: 2px; }
+.pp-radar { display: flex; justify-content: center; padding: 10px 0 16px; }
+.cb-clickable { cursor: pointer; color: #A51C30; }
+.cb-clickable:hover { text-decoration: underline; }
+.leader-name {
+  font-family: 'RoundedFixedsys', monospace;
+  color: #A51C30;
+  font-weight: 700;
+}
+
+.ob-page {
+  min-height: 100vh; background: #111; max-width: 480px; margin: 0 auto;
+}
+.ob-header {
+  height: 64px; display: flex; align-items: center; justify-content: center;
+}
+.ob-logo { height: 32px; }
+.ob-body { padding: 20px 24px 40px; text-align: center; }
+.ob-title {
+  font-family: 'RoundedFixedsys', monospace;
+  font-size: 20px; font-weight: 700; color: #fff; margin-bottom: 6px;
+}
+.ob-subtitle { font-size: 13px; color: rgba(255,255,255,0.4); margin-bottom: 28px; }
+
+/* 9종 그리드 */
+.ob-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;
+  max-width: 300px; margin: 0 auto 32px;
+}
+.ob-attr {
+  padding: 16px 8px; border-radius: 16px; border: 2px solid rgba(255,255,255,0.1);
+  background: rgba(255,255,255,0.05); cursor: pointer;
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  transition: all 0.4s;
+}
+.ob-attr:active { transform: scale(0.92); }
+.ob-attr-selected {
+  border-color: #A51C30; background: rgba(165,28,48,0.2);
+  box-shadow: 0 0 24px rgba(165,28,48,0.5); transform: scale(1.1);
+}
+.ob-attr-fade { opacity: 0.15; transform: scale(0.85); pointer-events: none; }
+.ob-attr-emoji { font-size: 36px; }
+.ob-attr-name { font-size: 13px; font-weight: 600; color: #fff; }
+
+/* reveal */
+.ob-reveal {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  min-height: 50vh; animation: fadeIn 0.5s;
+}
+.ob-reveal-glow {
+  width: 200px; height: 200px; border-radius: 50%;
+  background: radial-gradient(circle, rgba(165,28,48,0.3), transparent);
+  position: absolute; animation: pulse 1.5s infinite;
+}
+@keyframes pulse {
+  0%, 100% { transform: scale(1); opacity: 0.5; }
+  50% { transform: scale(1.3); opacity: 0.8; }
+}
+.ob-reveal-egg { position: relative; z-index: 1; animation: eggFloat 1.5s ease-in-out infinite; }
+@keyframes eggFloat {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+.ob-reveal-text {
+  color: rgba(255,255,255,0.5); font-size: 14px; margin-top: 24px;
+  font-family: 'RoundedFixedsys', monospace;
+  animation: blink 1s infinite;
+}
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+/* born */
+.ob-born {
+  display: flex; flex-direction: column; align-items: center;
+  min-height: 50vh; animation: fadeIn 0.8s;
+}
+.ob-born-egg { animation: eggBounce 0.6s ease-out; }
+@keyframes eggBounce {
+  0% { transform: scale(0) rotate(-10deg); }
+  60% { transform: scale(1.15) rotate(5deg); }
+  100% { transform: scale(1) rotate(0); }
+}
+.ob-born-title {
+  font-family: 'RoundedFixedsys', monospace;
+  font-size: 24px; color: #fff; margin-top: 20px;
+}
+.ob-born-desc { font-size: 14px; color: rgba(255,255,255,0.5); margin: 8px 0 28px; }
+.ob-confirm {
+  width: 100%; max-width: 300px; padding: 16px; border-radius: 14px;
+  border: none; background: #A51C30; color: #fff;
+  font-family: 'RoundedFixedsys', monospace;
+  font-size: 16px; font-weight: 700; cursor: pointer;
+}
+.ob-confirm:disabled { opacity: 0.4; }
+
+/* egg visual */
+.egg-visual { display: flex; align-items: center; justify-content: center; }
 
 .cs-page {
   min-height: 100vh;
