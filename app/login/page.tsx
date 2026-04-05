@@ -113,27 +113,51 @@ export default function LoginPage() {
 
   async function checkNickname() {
     if (!nickname.trim()) { setNicknameMsg('닉네임을 입력해주세요'); return }
+
+    // 정확히 일치하는 닉네임 검색
     const { data } = await supabase
       .from('members')
       .select('nickname, user_id')
       .eq('nickname', nickname.trim())
       .maybeSingle()
-    if (!data) {
-      setNicknameMsg('✓ 사용 가능한 닉네임이에요 (신규 가입)')
-      setNicknameChecked(true)
-    } else if (data.user_id) {
-      setNicknameMsg('✗ 이미 가입된 닉네임이에요')
-      setNicknameChecked(false)
-    } else {
-      const ok = confirm(`"${nickname.trim()}" 기존 크루원 데이터가 있습니다.\n기존 데이터(LV, 거리, 기록)와 연동하시겠습니까?`)
-      if (ok) {
-        setNicknameMsg('✓ 기존 크루원 데이터와 연동됩니다')
-        setNicknameChecked(true)
-      } else {
-        setNicknameMsg('연동을 취소했습니다. 다른 닉네임을 입력해주세요')
+
+    if (data) {
+      if (data.user_id) {
+        setNicknameMsg('✗ 이미 가입된 닉네임이에요')
         setNicknameChecked(false)
+      } else {
+        const ok = confirm(`"${data.nickname}" 기존 크루원 데이터가 있습니다.\n기존 데이터(LV, 거리, 기록)와 연동하시겠습니까?`)
+        if (ok) {
+          setNickname(data.nickname) // DB의 정확한 닉네임으로 교정
+          setNicknameMsg(`✓ "${data.nickname}" 기존 크루원 데이터와 연동됩니다`)
+          setNicknameChecked(true)
+        } else {
+          setNicknameMsg('연동을 취소했습니다. 다른 닉네임을 입력해주세요')
+          setNicknameChecked(false)
+        }
+      }
+      return
+    }
+
+    // 대소문자 무시 검색 (유사 닉네임)
+    const { data: similar } = await supabase
+      .from('members')
+      .select('nickname, user_id')
+      .ilike('nickname', nickname.trim())
+      .maybeSingle()
+
+    if (similar && !similar.user_id) {
+      const ok = confirm(`혹시 "${similar.nickname}"이(가) 맞으신가요?\n기존 데이터와 연동하시겠습니까?`)
+      if (ok) {
+        setNickname(similar.nickname)
+        setNicknameMsg(`✓ "${similar.nickname}" 기존 크루원 데이터와 연동됩니다`)
+        setNicknameChecked(true)
+        return
       }
     }
+
+    setNicknameMsg('✓ 사용 가능한 닉네임이에요 (신규 가입)')
+    setNicknameChecked(true)
   }
 
   // 이메일로 인증코드 발송
