@@ -31,7 +31,7 @@ export default function NotificationBell({ userId }: { userId: string | null }) 
     setNotifications(prev => prev.map(n => ({ ...n, is_read: true })))
   }
 
-  async function handleRequest(requestId: string, action: 'approve' | 'reject') {
+  async function handleRequest(requestId: string, action: 'approve' | 'reject', notifId?: string) {
     if (!userId) return
     setLoading(true)
     await fetchWithAuth('/api/crew/handle-request', {
@@ -39,7 +39,12 @@ export default function NotificationBell({ userId }: { userId: string | null }) 
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ requestId, action })
     })
-    await loadNotifications()
+    // 처리된 알림 로컬에서 제거
+    if (notifId) {
+      setNotifications(prev => prev.filter(n => n.id !== notifId))
+    } else {
+      await loadNotifications()
+    }
     setLoading(false)
   }
 
@@ -91,7 +96,7 @@ export default function NotificationBell({ userId }: { userId: string | null }) 
                       onClick={() => {
                         const meta = n.metadata as Record<string, string>
                         // Find the join request by crew_id and requester
-                        handleRequest(meta.request_id || n.id, 'approve')
+                        handleRequest(meta.request_id || n.id, 'approve', n.id)
                       }}
                       disabled={loading}
                     >수락</button>
@@ -99,7 +104,7 @@ export default function NotificationBell({ userId }: { userId: string | null }) 
                       className="notif-reject"
                       onClick={() => {
                         const meta = n.metadata as Record<string, string>
-                        handleRequest(meta.request_id || n.id, 'reject')
+                        handleRequest(meta.request_id || n.id, 'reject', n.id)
                       }}
                       disabled={loading}
                     >거절</button>

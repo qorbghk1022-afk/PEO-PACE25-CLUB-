@@ -8,13 +8,20 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: authError || 'Unauthorized' }, { status: 401 })
   }
 
-  const { crewId, nickname } = await req.json()
+  const { crewId, nickname: bodyNickname } = await req.json()
   if (!crewId) return NextResponse.json({ error: '필수 정보 누락' }, { status: 400 })
 
   const admin = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   )
+
+  // 닉네임이 없으면 DB에서 가져오기
+  let nickname = bodyNickname
+  if (!nickname) {
+    const { data: mem } = await admin.from('members').select('nickname').eq('user_id', userId).maybeSingle()
+    nickname = mem?.nickname || null
+  }
 
   // 이미 이 크루에 속해있는지 (같은 크루 중복 가입만 방지)
   const { data: alreadyIn } = await admin.from('crew_members').select('id').eq('user_id', userId).eq('crew_id', crewId).maybeSingle()
