@@ -137,7 +137,7 @@ export default function Calendar({
     }
   }
   function handleNext() {
-    setPeriodOffset(o => Math.min(o + 1, 0))
+    if (periodOffset < 0) setPeriodOffset(o => o + 1)
   }
   function handleCalendarPrev() {
     if (month === 1) { setYear(y => y - 1); setMonth(12) } else setMonth(m => m - 1)

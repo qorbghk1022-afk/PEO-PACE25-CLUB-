@@ -111,9 +111,6 @@ export default function SeasonDraw({ member, members }: { member: Member | null;
           disabled={!isQuarterOver}
           onDraw={handleDraw}
         />
-        {!isQuarterOver && (
-          <div className="draw-machine-label">분기 종료 후 활성화</div>
-        )}
       </div>
 
       {/* 내 추첨권 */}

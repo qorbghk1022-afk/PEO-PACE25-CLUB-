@@ -32,16 +32,16 @@ export async function POST(req: NextRequest) {
   if (pendingReq) return NextResponse.json({ error: '이미 가입 신청 중입니다' }, { status: 409 })
 
   // 가입 신청
-  await admin.from('crew_join_requests').insert({
+  const { data: newReq } = await admin.from('crew_join_requests').insert({
     crew_id: crewId, user_id: userId, member_nickname: nickname || null, status: 'pending'
-  })
+  }).select('id').single()
 
   // 크루장에게 알림
   await admin.from('notifications').insert({
     user_id: crew.leader_user_id,
     type: 'join_request',
     title: `${nickname || '새 멤버'}님이 크루 가입을 신청했습니다`,
-    metadata: { crew_id: crewId, requester_user_id: userId, requester_nickname: nickname }
+    metadata: { crew_id: crewId, requester_user_id: userId, requester_nickname: nickname, request_id: newReq?.id }
   })
 
   return NextResponse.json({ success: true })

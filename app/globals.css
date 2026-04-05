@@ -1876,6 +1876,50 @@ html, body {
 .admin-empty { text-align: center; color: #999; padding: 40px; font-size: 14px; }
 .admin-action-btn { display: block; width: 100%; padding: 14px; margin-bottom: 10px; border: 2px solid #333; border-radius: 10px; background: none; font-size: 14px; font-weight: 600; cursor: pointer; font-family: 'RoundedFixedsys', monospace; }
 .admin-loading { min-height: 100vh; display: flex; align-items: center; justify-content: center; }
+.admin-summary { display: flex; justify-content: space-around; padding: 14px 16px; border-bottom: 1px solid #eee; }
+.admin-summary-item { text-align: center; font-size: 11px; color: #999; }
+.admin-summary-num { display: block; font-size: 20px; font-weight: 700; color: #111; }
+.admin-badge { display: inline-block; padding: 1px 6px; border-radius: 4px; font-size: 9px; font-weight: 700; margin-left: 4px; vertical-align: middle; }
+.admin-badge.auth { background: #e8f5e9; color: #2e7d32; }
+.admin-badge.strava { background: #fff3e0; color: #FC4C02; }
+.admin-badge.pending { background: #f5f5f5; color: #999; }
+.admin-remark { color: #A51C30; font-style: italic; }
+.admin-member-actions { display: flex; gap: 4px; }
+.admin-sm-btn { padding: 4px 10px; border-radius: 6px; border: 1px solid #ddd; background: none; font-size: 11px; cursor: pointer; }
+.admin-unpaid-summary { padding: 10px 16px; background: #fff3e0; color: #e65100; font-size: 13px; font-weight: 600; border-bottom: 1px solid #eee; }
+
+/* ============================
+   내 정보
+   ============================ */
+.myinfo-page { min-height: 100vh; background: #fff; max-width: 480px; margin: 0 auto; font-family: 'RoundedFixedsys', monospace; }
+.myinfo-body { padding: 16px; }
+.myinfo-avatar-section { display: flex; align-items: center; gap: 16px; padding: 20px 0; border-bottom: 1px solid #eee; margin-bottom: 16px; }
+.myinfo-avatar-label { position: relative; cursor: pointer; }
+.myinfo-avatar { width: 72px; height: 72px; border-radius: 50%; object-fit: cover; border: 3px solid #eee; }
+.myinfo-avatar-placeholder { width: 72px; height: 72px; border-radius: 50%; background: #f5f5f5; display: flex; align-items: center; justify-content: center; }
+.myinfo-avatar-badge { position: absolute; bottom: 0; right: 0; width: 24px; height: 24px; border-radius: 50%; background: #fff; border: 1px solid #ddd; display: flex; align-items: center; justify-content: center; }
+.myinfo-name-area {}
+.myinfo-lv { font-size: 13px; color: #A51C30; font-weight: 700; }
+.myinfo-nickname { font-size: 22px; font-weight: 700; color: #111; }
+.myinfo-section { padding: 14px 0; border-bottom: 1px solid #f0f0f0; }
+.myinfo-section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+.myinfo-section-title { font-size: 13px; font-weight: 700; color: #888; }
+.myinfo-row { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; font-size: 14px; }
+.myinfo-label { color: #999; min-width: 60px; }
+.myinfo-address { font-size: 12px; text-align: right; max-width: 200px; }
+.myinfo-edit-row { display: flex; gap: 6px; align-items: center; }
+.myinfo-input { border: 1.5px solid #e0e0e0; border-radius: 8px; padding: 8px 12px; font-size: 14px; outline: none; flex: 1; }
+.myinfo-select { border: 1.5px solid #e0e0e0; border-radius: 8px; padding: 8px 12px; font-size: 14px; outline: none; width: 100%; margin-bottom: 8px; }
+.myinfo-save-btn { padding: 8px 16px; border-radius: 8px; border: none; background: #111; color: #fff; font-size: 13px; font-weight: 600; cursor: pointer; }
+.myinfo-cancel-btn { padding: 8px 12px; border-radius: 8px; border: 1px solid #ddd; background: none; font-size: 13px; cursor: pointer; }
+.myinfo-edit-btn { font-size: 13px; color: #A51C30; background: none; border: none; cursor: pointer; font-weight: 600; }
+.myinfo-msg { font-size: 12px; color: #A51C30; margin-top: 6px; }
+.myinfo-leave-form { display: flex; flex-direction: column; gap: 8px; }
+.myinfo-leave-btn { width: 100%; padding: 12px; border: 2px solid #A51C30; border-radius: 10px; background: none; color: #A51C30; font-size: 14px; font-weight: 700; cursor: pointer; }
+.myinfo-links { display: flex; flex-direction: column; gap: 4px; }
+.myinfo-link { font-size: 14px; color: #555; text-decoration: none; padding: 8px 0; }
+.myinfo-logout { width: 100%; padding: 12px; border: none; background: #f5f5f5; border-radius: 10px; font-size: 14px; cursor: pointer; margin-bottom: 8px; }
+.myinfo-delete { width: 100%; padding: 12px; border: none; background: none; color: #e53935; font-size: 13px; cursor: pointer; }
 
 .pp-overlay {
   position: fixed; inset: 0; background: rgba(0,0,0,0.5);

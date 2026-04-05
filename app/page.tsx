@@ -229,16 +229,9 @@ export default function Home() {
             </div>
           </div>
         )}
-        <button className="side-menu-item" onClick={() => { setMenuOpen(false); setActiveTab('MY') }}>내 정보</button>
+        <button className="side-menu-item" onClick={() => { setMenuOpen(false); router.push('/my-info') }}>내 정보</button>
         <button className="side-menu-item" onClick={() => { setMenuOpen(false); router.push('/crew-select') }}>크루 찾기 / 전환</button>
         <button className="side-menu-item" onClick={() => { setMenuOpen(false); router.push('/crew-admin') }}>크루 관리</button>
-        <div className="side-menu-divider" />
-        <a href="/policy/terms" className="side-menu-item">서비스 이용약관</a>
-        <a href="/policy/privacy" className="side-menu-item">개인정보 처리방침</a>
-        <a href="/policy/all" className="side-menu-item">이용 약관 및 방침</a>
-        <div className="side-menu-divider" />
-        <button className="side-menu-item" onClick={async () => { await supabase.auth.signOut(); router.push('/login') }}>로그아웃</button>
-        <button className="side-menu-item side-menu-danger">회원탈퇴</button>
       </div>
       <main className="tab-content">
         {activeTab === '챌린지' && (

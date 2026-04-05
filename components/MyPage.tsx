@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase/client'
 import type { Member, SeasonStats, RollingScores } from '@/lib/types'
 import { formatDist } from '@/lib/scoring'
@@ -77,12 +77,12 @@ export default function MyPage({
   const [uploadingAvatar, setUploadingAvatar] = useState(false)
   const [stravaConnected, setStravaConnected] = useState(false)
 
-  useState(() => {
+  useEffect(() => {
     if (currentUserId) {
       supabase.from('strava_tokens').select('id').eq('user_id', currentUserId).maybeSingle()
         .then(({ data }) => { if (data) setStravaConnected(true) })
     }
-  })
+  }, [currentUserId])
 
   async function handleAvatarUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
