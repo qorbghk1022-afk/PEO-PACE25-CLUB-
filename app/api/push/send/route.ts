@@ -2,11 +2,14 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import webpush from 'web-push'
 
-webpush.setVapidDetails(
-  'mailto:peo@pace25.com',
-  process.env.VAPID_PUBLIC_KEY!,
-  process.env.VAPID_PRIVATE_KEY!
-)
+function getWebPush() {
+  webpush.setVapidDetails(
+    'mailto:peo@pace25.com',
+    process.env.VAPID_PUBLIC_KEY!,
+    process.env.VAPID_PRIVATE_KEY!
+  )
+  return webpush
+}
 
 export async function POST(req: NextRequest) {
   const secret = req.headers.get('authorization')?.replace('Bearer ', '')
@@ -29,7 +32,7 @@ export async function POST(req: NextRequest) {
   let sent = 0
   for (const sub of subs || []) {
     try {
-      await webpush.sendNotification(
+      await getWebPush().sendNotification(
         { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
         JSON.stringify({ title, body, url })
       )
