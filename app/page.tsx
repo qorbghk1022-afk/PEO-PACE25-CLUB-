@@ -235,7 +235,7 @@ export default function Home() {
       </div>
       <main className="tab-content">
         {activeTab === '챌린지' && (
-          <ChallengeBoard members={members} seasonStats={seasonStats} rollingScores={rollingScores} />
+          <ChallengeBoard members={members} seasonStats={seasonStats} rollingScores={rollingScores} crewId={crewId} />
         )}
         {activeTab === '추첨' && (
           <SeasonDraw member={currentMember} members={members} />

@@ -39,11 +39,12 @@ interface ChallengeData {
 }
 
 export default function ChallengeBoard({
-  members, seasonStats, rollingScores
+  members, seasonStats, rollingScores, crewId
 }: {
   members: Member[]
   seasonStats: SeasonStats[]
   rollingScores: Record<string, RollingScores>
+  crewId: string | null
 }) {
   const [challenges, setChallenges] = useState<ChallengeData[]>([])
   const [currentIdx, setCurrentIdx] = useState(0)
@@ -65,10 +66,13 @@ export default function ChallengeBoard({
 
   // 전체 챌린지 목록 로드
   useEffect(() => {
-    supabase
+    if (!crewId) return
+    let query = supabase
       .from('challenges')
       .select('*')
+      .eq('crew_id', crewId)
       .order('start_date', { ascending: false })
+    query
       .then(({ data }) => {
         if (data && data.length > 0) {
           setChallenges(data)
@@ -77,7 +81,7 @@ export default function ChallengeBoard({
         }
         setLoading(false)
       })
-  }, [])
+  }, [crewId])
 
   async function loadQuarterStats(allChallenges: ChallengeData[]) {
     const qStart = '2026-01-20'
