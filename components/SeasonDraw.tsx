@@ -56,13 +56,14 @@ export default function SeasonDraw({ member, members }: { member: Member | null;
   useEffect(() => {
     if (!member) return
     loadTicketData()
-    // 기존 추첨 결과 확인
-    fetch('/api/draw?quarter=Q1-2026').then(r => r.json()).then(({ results }) => {
-      if (results && results.length > 0) {
-        setDrawResults(results)
-        setShowResults(true)
-      }
-    })
+    // 기존 추첨 결과 확인 (분기 종료 후에만)
+    if (now > quarterEnd) {
+      fetch('/api/draw?quarter=Q1-2026').then(r => r.json()).then(({ results }) => {
+        if (results && results.length > 0) {
+          setDrawResults(results)
+        }
+      })
+    }
   }, [member])
 
   async function loadTicketData() {
