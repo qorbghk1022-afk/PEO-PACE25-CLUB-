@@ -22,7 +22,7 @@
 }
 
 html, body {
-  font-family: 'Noto Sans KR', -apple-system, sans-serif;
+  font-family: 'Pretendard', -apple-system, sans-serif;
   background: #fff;
   min-height: 100vh;
   color: var(--text);
@@ -672,7 +672,7 @@ html, body {
 /* ============================
    랭킹 - 레트로 테이블
    ============================ */
-.rank-wrap { padding-bottom: 20px; font-family: 'RoundedFixedsys', monospace; }
+.rank-wrap { padding-bottom: 20px; font-family: 'Pretendard', sans-serif; }
 .rank-header-bar {
   background: #333;
   border: 3px solid #333;
@@ -681,7 +681,7 @@ html, body {
   box-shadow: 4px 4px 0 #111;
 }
 .rank-header-title {
-  font-family: 'RoundedFixedsys', monospace;
+  font-family: 'Pretendard', sans-serif;
   font-size: 12px;
   font-weight: 700;
   color: #fff;
@@ -838,7 +838,7 @@ html, body {
 /* 챌린지보드 (레거시 - 미사용) */
 
 /* 캘린더 */
-.calendar-page { padding-bottom: 20px; font-family: 'RoundedFixedsys', monospace; }
+.calendar-page { padding-bottom: 20px; font-family: 'Pretendard', sans-serif; }
 .calendar-container { background: white; border-radius: var(--radius); padding: 16px; box-shadow: var(--shadow); }
 .calendar-nav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
 .calendar-nav button { background: none; border: none; font-size: 18px; cursor: pointer; padding: 4px 8px; color: var(--accent); }
@@ -1141,7 +1141,7 @@ html, body {
   border-radius: 12px;
   overflow: hidden;
   box-shadow: 4px 4px 0 #333;
-  font-family: 'RoundedFixedsys', monospace;
+  font-family: 'Pretendard', sans-serif;
 }
 
 /* 상단 스탯 바 */
@@ -1274,7 +1274,7 @@ html, body {
 }
 .retro-equip-title {
   text-align: center;
-  font-family: 'RoundedFixedsys', monospace;
+  font-family: 'Pretendard', sans-serif;
   font-size: 8px;
   font-weight: 700;
   color: #888;
@@ -1325,7 +1325,7 @@ html, body {
   border-radius: 12px;
   overflow: hidden;
   box-shadow: 4px 4px 0 #333;
-  font-family: 'RoundedFixedsys', monospace;
+  font-family: 'Pretendard', sans-serif;
 }
 .retro-section-header {
   display: flex;
@@ -1420,7 +1420,7 @@ html, body {
    ============================ */
 .cb-wrap {
   padding-bottom: 20px;
-  font-family: 'RoundedFixedsys', monospace;
+  font-family: 'Pretendard', sans-serif;
 }
 .cb-quarter {
   display: flex;
@@ -1431,7 +1431,7 @@ html, body {
   background: #f5efe6;
   border: 2px solid #333;
   border-radius: 8px;
-  font-family: 'RoundedFixedsys', monospace;
+  font-family: 'Pretendard', sans-serif;
 }
 .cb-quarter-label {
   font-size: 14px;
@@ -1460,7 +1460,7 @@ html, body {
   border: none;
   border-radius: 8px;
   background: transparent;
-  font-family: 'RoundedFixedsys', monospace;
+  font-family: 'Pretendard', sans-serif;
   font-size: 13px;
   font-weight: 700;
   color: #999;
@@ -1485,13 +1485,13 @@ html, body {
   margin-bottom: 8px;
 }
 .cb-title {
-  font-family: 'RoundedFixedsys', monospace;
+  font-family: 'Pretendard', sans-serif;
   font-size: 18px;
   font-weight: 700;
   color: #fff;
 }
 .cb-goal-km {
-  font-family: 'RoundedFixedsys', monospace;
+  font-family: 'Pretendard', sans-serif;
   font-size: 16px;
   font-weight: 700;
   color: #fff;
@@ -1518,13 +1518,13 @@ html, body {
   cursor: default;
 }
 .cb-nav-label {
-  font-family: 'RoundedFixedsys', monospace;
+  font-family: 'Pretendard', sans-serif;
   font-size: 12px;
   font-weight: 700;
   color: rgba(255,255,255,0.5);
 }
 .cb-goal-pct {
-  font-family: 'RoundedFixedsys', monospace;
+  font-family: 'Pretendard', sans-serif;
   font-size: 14px;
   font-weight: 700;
   color: rgba(255,255,255,0.5);
@@ -1607,13 +1607,13 @@ html, body {
   padding: 0;
   border: none;
   color: #fff;
-  font-family: 'RoundedFixedsys', monospace;
+  font-family: 'Pretendard', sans-serif;
   font-size: 15px;
   font-weight: 700;
   line-height: 1.6;
 }
 .cb-total-value {
-  font-family: 'RoundedFixedsys', monospace;
+  font-family: 'Pretendard', sans-serif;
   font-size: 20px;
   font-weight: 700;
   color: #fff;
@@ -1741,7 +1741,7 @@ html, body {
 /* ============================
    추첨 탭
    ============================ */
-.draw-wrap { padding-bottom: 20px; font-family: 'RoundedFixedsys', monospace; }
+.draw-wrap { padding-bottom: 20px; font-family: 'Pretendard', sans-serif; }
 .draw-header {
   background: #333;
   border: 3px solid #333;
@@ -1808,7 +1808,7 @@ html, body {
 }
 .gacha-label {
   margin-top: 10px; font-size: 13px; color: #A51C30; font-weight: 700;
-  font-family: 'RoundedFixedsys', monospace;
+  font-family: 'Pretendard', sans-serif;
 }
 .draw-machine-label {
   margin-top: 6px; font-size: 12px; color: #999;
@@ -1852,14 +1852,14 @@ html, body {
 .strava-status {
   display: inline-flex; align-items: center; gap: 6px;
   font-size: 13px; font-weight: 600; color: #27ae60;
-  font-family: 'RoundedFixedsys', monospace;
+  font-family: 'Pretendard', sans-serif;
 }
 
-.admin-page { min-height: 100vh; background: #fff; max-width: 480px; margin: 0 auto; font-family: 'RoundedFixedsys', monospace; }
+.admin-page { min-height: 100vh; background: #fff; max-width: 480px; margin: 0 auto; font-family: 'Pretendard', sans-serif; }
 .admin-header { height: 64px; padding: 0 16px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #eee; }
 .admin-title { font-size: 18px; font-weight: 700; }
 .admin-tabs { display: flex; border-bottom: 2px solid #eee; }
-.admin-tab { flex: 1; padding: 12px 0; border: none; background: none; font-size: 13px; font-weight: 600; color: #999; cursor: pointer; font-family: 'RoundedFixedsys', monospace; }
+.admin-tab { flex: 1; padding: 12px 0; border: none; background: none; font-size: 13px; font-weight: 600; color: #999; cursor: pointer; font-family: 'Pretendard', sans-serif; }
 .admin-tab.active { color: #A51C30; border-bottom: 2px solid #A51C30; margin-bottom: -2px; }
 .admin-body { padding: 16px; }
 .admin-member-row { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid #f0f0f0; }
@@ -1872,7 +1872,7 @@ html, body {
 .admin-approve-btn { padding: 6px 14px; border-radius: 6px; border: none; background: #333; color: #fff; font-size: 12px; cursor: pointer; }
 .admin-reject-btn { padding: 6px 14px; border-radius: 6px; border: 1px solid #ddd; background: none; color: #666; font-size: 12px; cursor: pointer; }
 .admin-empty { text-align: center; color: #999; padding: 40px; font-size: 14px; }
-.admin-action-btn { display: block; width: 100%; padding: 14px; margin-bottom: 10px; border: 2px solid #333; border-radius: 10px; background: none; font-size: 14px; font-weight: 600; cursor: pointer; font-family: 'RoundedFixedsys', monospace; }
+.admin-action-btn { display: block; width: 100%; padding: 14px; margin-bottom: 10px; border: 2px solid #333; border-radius: 10px; background: none; font-size: 14px; font-weight: 600; cursor: pointer; font-family: 'Pretendard', sans-serif; }
 .admin-loading { min-height: 100vh; display: flex; align-items: center; justify-content: center; }
 .admin-summary { display: flex; justify-content: space-around; padding: 14px 16px; border-bottom: 1px solid #eee; }
 .admin-summary-item { text-align: center; font-size: 11px; color: #999; }
@@ -1889,7 +1889,7 @@ html, body {
 /* ============================
    내 정보
    ============================ */
-.myinfo-page { min-height: 100vh; background: #fff; max-width: 480px; margin: 0 auto; font-family: 'RoundedFixedsys', monospace; }
+.myinfo-page { min-height: 100vh; background: #fff; max-width: 480px; margin: 0 auto; font-family: 'Pretendard', sans-serif; }
 .myinfo-body { padding: 16px; }
 .myinfo-avatar-section { display: flex; align-items: center; gap: 16px; padding: 20px 0; border-bottom: 1px solid #eee; margin-bottom: 16px; }
 .myinfo-avatar-label { position: relative; cursor: pointer; }
@@ -1926,7 +1926,7 @@ html, body {
 .pp-card {
   background: #fff; border-radius: 20px; width: 280px; overflow: hidden;
   box-shadow: 0 8px 30px rgba(0,0,0,0.2); position: relative;
-  font-family: 'RoundedFixedsys', monospace;
+  font-family: 'Pretendard', sans-serif;
 }
 .pp-close {
   position: absolute; top: 10px; right: 14px; background: none; border: none;
@@ -1950,7 +1950,7 @@ html, body {
 .cb-clickable { cursor: pointer; color: #A51C30; }
 .cb-clickable:hover { text-decoration: underline; }
 .leader-name {
-  font-family: 'RoundedFixedsys', monospace;
+  font-family: 'Pretendard', sans-serif;
   color: #A51C30;
   font-weight: 700;
 }
@@ -1964,7 +1964,7 @@ html, body {
 .ob-logo { height: 32px; }
 .ob-body { padding: 20px 24px 40px; text-align: center; }
 .ob-title {
-  font-family: 'RoundedFixedsys', monospace;
+  font-family: 'Pretendard', sans-serif;
   font-size: 20px; font-weight: 700; color: #fff; margin-bottom: 6px;
 }
 .ob-subtitle { font-size: 13px; color: rgba(255,255,255,0.4); margin-bottom: 28px; }
@@ -2010,7 +2010,7 @@ html, body {
 }
 .ob-reveal-text {
   color: rgba(255,255,255,0.5); font-size: 14px; margin-top: 24px;
-  font-family: 'RoundedFixedsys', monospace;
+  font-family: 'Pretendard', sans-serif;
   animation: blink 1s infinite;
 }
 @keyframes blink {
@@ -2030,14 +2030,14 @@ html, body {
   100% { transform: scale(1) rotate(0); }
 }
 .ob-born-title {
-  font-family: 'RoundedFixedsys', monospace;
+  font-family: 'Pretendard', sans-serif;
   font-size: 24px; color: #fff; margin-top: 20px;
 }
 .ob-born-desc { font-size: 14px; color: rgba(255,255,255,0.5); margin: 8px 0 28px; }
 .ob-confirm {
   width: 100%; max-width: 300px; padding: 16px; border-radius: 14px;
   border: none; background: #A51C30; color: #fff;
-  font-family: 'RoundedFixedsys', monospace;
+  font-family: 'Pretendard', sans-serif;
   font-size: 16px; font-weight: 700; cursor: pointer;
 }
 .ob-confirm:disabled { opacity: 0.4; }

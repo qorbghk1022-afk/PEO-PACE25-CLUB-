@@ -255,9 +255,10 @@ export default function ChallengeBoard({
 
   const activeTeams = teams.filter(t => t.team_num > 0)
   const restTeam = teams.find(t => t.team_num === -1)
-  const totalGoal = activeTeams.reduce((s, t) => s + t.goalKm, 0)
-  const totalPct = totalGoal > 0
-    ? Math.min(Math.round((activeTeams.reduce((s, t) => s + t.totalDist, 0) / totalGoal) * 100), 100)
+  const activeMembers = activeTeams.flatMap(t => t.members)
+  const completedMembers = activeMembers.filter(m => m.ticket)
+  const totalPct = activeMembers.length > 0
+    ? Math.round((completedMembers.length / activeMembers.length) * 100)
     : 0
 
   // 분기 계산

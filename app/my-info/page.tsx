@@ -225,7 +225,7 @@ export default function MyInfoPage() {
           {stravaConnected ? (
             <div className="myinfo-row strava-connected-row">
               <img src="/powered_by_strava.png" alt="Powered by Strava" className="strava-powered-logo" />
-              <span className="strava-status connected">연동됨</span>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#27ae60" strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg>
             </div>
           ) : (
             <div className="myinfo-row">
