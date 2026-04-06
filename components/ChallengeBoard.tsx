@@ -16,10 +16,9 @@ interface TeamMember {
 }
 
 // 휴식 멤버는 DB members.leave_start/leave_end로 판단
-function isOnLeave(member: Member, challengeStart: string, challengeEnd: string): string | null {
-  const m = member as Member & { leave_start?: string; leave_end?: string; leave_reason?: string }
-  if (!m.leave_start || !m.leave_end) return null
-  if (m.leave_start <= challengeEnd && m.leave_end >= challengeStart) return m.leave_reason || '휴식'
+function isOnLeave(member: Member | undefined, challengeStart: string, challengeEnd: string): string | null {
+  if (!member || !member.leave_start || !member.leave_end) return null
+  if (member.leave_start <= challengeEnd && member.leave_end >= challengeStart) return member.leave_reason || '휴식'
   return null
 }
 
@@ -69,12 +68,11 @@ export default function ChallengeBoard({
   // 전체 챌린지 목록 로드
   useEffect(() => {
     if (!crewId) return
-    let query = supabase
+    supabase
       .from('challenges')
       .select('*')
       .eq('crew_id', crewId)
       .order('start_date', { ascending: false })
-    query
       .then(({ data }) => {
         if (data && data.length > 0) {
           setChallenges(data)
@@ -86,6 +84,8 @@ export default function ChallengeBoard({
   }, [crewId])
 
   async function loadQuarterStats(allChallenges: ChallengeData[]) {
+    const memberMap: Record<string, Member> = {}
+    members.forEach(m => { memberMap[m.nickname] = m })
     const qStart = '2026-01-20'
     const qEnd = '2026-04-19'
     const qChallenges = allChallenges.filter(c => c.start_date >= qStart && c.end_date <= qEnd)
