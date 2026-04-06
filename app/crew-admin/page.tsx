@@ -96,7 +96,7 @@ export default function CrewAdminPage() {
   return (
     <div className="admin-page">
       <header className="admin-header">
-        <button className="cs-back" onClick={() => router.push('/')}>
+        <button className="cs-back" onClick={() => { window.location.href = '/' }}>
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#111" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M19 12H5"/><polyline points="12 19 5 12 12 5"/>
           </svg>
@@ -160,6 +160,7 @@ export default function CrewAdminPage() {
                 <button className="admin-sm-btn" onClick={async () => {
                   await supabase.from('members').update({ leave_start: null, leave_end: null, leave_reason: null }).eq('nickname', m.nickname)
                   setMembers(prev => prev.map(x => x.nickname === m.nickname ? { ...x, leave_start: null, leave_end: null, leave_reason: null } : x))
+                  alert(`${m.nickname}님 휴식 해제 완료`)
                 }}>해제</button>
               </div>
             ))}
@@ -189,6 +190,7 @@ export default function CrewAdminPage() {
                 if (!nick || !start || !end) { alert('모든 항목을 입력해주세요'); return }
                 await supabase.from('members').update({ leave_start: start, leave_end: end, leave_reason: reason }).eq('nickname', nick)
                 setMembers(prev => prev.map(m => m.nickname === nick ? { ...m, leave_start: start, leave_end: end, leave_reason: reason } : m))
+                alert(`${nick}님 휴식 설정 완료 (${start} ~ ${end})`)
               }}>휴식 설정</button>
             </div>
 
