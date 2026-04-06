@@ -15,10 +15,12 @@ interface TeamMember {
   reason: string | null
 }
 
-// 휴식/병가/출산휴가 등 사유가 있는 멤버 (챌린지 기간별)
-const REST_MEMBERS: Record<string, Record<string, string>> = {
-  '갤러리킴': { '2026-03-09': '병가', '2026-03-23': '병가' },
-  '꾸마': { '2026-03-09': '출산휴가', '2026-03-23': '출산휴가' },
+// 휴식 멤버는 DB members.leave_start/leave_end로 판단
+function isOnLeave(member: Member, challengeStart: string, challengeEnd: string): string | null {
+  const m = member as Member & { leave_start?: string; leave_end?: string; leave_reason?: string }
+  if (!m.leave_start || !m.leave_end) return null
+  if (m.leave_start <= challengeEnd && m.leave_end >= challengeStart) return m.leave_reason || '휴식'
+  return null
 }
 
 interface Team {
@@ -120,7 +122,7 @@ export default function ChallengeBoard({
       const teamNums = [...new Set((teams || []).map(t => t.team_num))]
       for (const tn of teamNums) {
         const tmems = (teams || []).filter(t => t.team_num === tn).map(t => t.member_nickname)
-          .filter(n => !REST_MEMBERS[n]?.[ch.start_date])
+          .filter(n => !isOnLeave(memberMap[n], ch.start_date, ch.end_date))
         if (tmems.length === 0) continue
         const teamGoal = tmems.length * ch.goal_km
         const teamDist = tmems.reduce((s, n) => s + (chDist[n] || 0), 0)
@@ -201,8 +203,8 @@ export default function ChallengeBoard({
         })
 
       // 휴식 멤버 분리
-      const activeMembers = teamMembers.filter(n => !REST_MEMBERS[n]?.[challenge.start_date])
-      const restMembers = teamMembers.filter(n => !!REST_MEMBERS[n]?.[challenge.start_date])
+      const activeMembers = teamMembers.filter(n => !isOnLeave(memberMap[n], challenge.start_date, challenge.end_date))
+      const restMembers = teamMembers.filter(n => !!isOnLeave(memberMap[n], challenge.start_date, challenge.end_date))
 
       const goalKm = activeMembers.length * challenge.goal_km
       const totalDist = activeMembers.reduce((s: number, n: string) => s + (distMap[n] || 0), 0)
@@ -226,12 +228,12 @@ export default function ChallengeBoard({
 
     // 휴식 멤버를 별도 팀(-) 으로 추가
     const allRest: TeamMember[] = []
-    for (const nickname of Object.keys(REST_MEMBERS)) {
-      if (REST_MEMBERS[nickname]?.[challenge.start_date]) {
+    for (const mb of members) {
+      const reason = isOnLeave(mb, challenge.start_date, challenge.end_date)
+      if (reason) {
         allRest.push({
-          nickname, lv: memberMap[nickname]?.lv || 0, dist: 0,
-          remain: 0, fine: 0, ticket: false,
-          reason: REST_MEMBERS[nickname][challenge.start_date],
+          nickname: mb.nickname, lv: mb.lv || 0, dist: 0,
+          remain: 0, fine: 0, ticket: false, reason,
         })
       }
     }

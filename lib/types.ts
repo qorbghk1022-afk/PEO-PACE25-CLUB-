@@ -14,6 +14,9 @@ export type Member = {
   lottery_tickets: number
   created_at: string | null
   egg_config: { pattern: string; color: string; eyes: string } | null
+  leave_start: string | null
+  leave_end: string | null
+  leave_reason: string | null
 }
 
 export type SeasonStats = {

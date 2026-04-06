@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase/client'
 import { fetchWithAuth } from '@/lib/fetchWithAuth'
 
-interface MemberRow { nickname: string; lv: number; total_dist: number; is_active: boolean; user_id: string | null; remark: string | null; strava: boolean }
+interface MemberRow { nickname: string; lv: number; total_dist: number; is_active: boolean; user_id: string | null; remark: string | null; strava: boolean; leave_start: string | null; leave_end: string | null; leave_reason: string | null }
 interface LeaveRow { id: string; member_nickname: string; reason: string; reason_detail: string | null; status: string; requested_at: string }
 interface PaymentRow { id: string; member_nickname: string; type: string; amount: number; status: string }
 interface JoinReqRow { id: string; member_nickname: string; created_at: string }
@@ -36,7 +36,7 @@ export default function CrewAdminPage() {
 
   async function loadAll(cid: string) {
     const [{ data: mems }, { data: lvs }, { data: reqs }] = await Promise.all([
-      supabase.from('members').select('nickname, lv, total_dist, is_active, user_id, remark').eq('crew_id', cid),
+      supabase.from('members').select('nickname, lv, total_dist, is_active, user_id, remark, leave_start, leave_end, leave_reason').eq('crew_id', cid),
       supabase.from('challenge_leaves').select('*').eq('status', 'pending'),
       supabase.from('crew_join_requests').select('id, member_nickname, created_at').eq('crew_id', cid).eq('status', 'pending'),
     ])
@@ -146,7 +146,55 @@ export default function CrewAdminPage() {
 
         {tab === 'leaves' && (
           <>
-            {leaves.length === 0 && <p className="admin-empty">대기 중인 중단 신청이 없습니다</p>}
+            {/* 현재 휴식 중인 멤버 */}
+            <div className="admin-section-label">휴식 중인 멤버</div>
+            {members.filter(m => m.leave_start && m.leave_end && m.leave_end >= new Date().toISOString().slice(0,10)).length === 0 && (
+              <p className="admin-empty-sm">휴식 중인 멤버가 없습니다</p>
+            )}
+            {members.filter(m => m.leave_start && m.leave_end && m.leave_end >= new Date().toISOString().slice(0,10)).map(m => (
+              <div key={m.nickname} className="admin-member-row">
+                <div className="admin-member-info">
+                  <div className="admin-member-name">{m.nickname} <span className="admin-badge strava">{m.leave_reason}</span></div>
+                  <div className="admin-member-sub">{m.leave_start} ~ {m.leave_end}</div>
+                </div>
+                <button className="admin-sm-btn" onClick={async () => {
+                  await supabase.from('members').update({ leave_start: null, leave_end: null, leave_reason: null }).eq('nickname', m.nickname)
+                  setMembers(prev => prev.map(x => x.nickname === m.nickname ? { ...x, leave_start: null, leave_end: null, leave_reason: null } : x))
+                }}>해제</button>
+              </div>
+            ))}
+
+            {/* 휴식 설정 */}
+            <div className="admin-section-label" style={{ marginTop: 16 }}>휴식 설정</div>
+            <div className="admin-leave-form">
+              <select id="leave-member" className="myinfo-select">
+                <option value="">멤버 선택</option>
+                {members.filter(m => !m.leave_start).map(m => <option key={m.nickname} value={m.nickname}>{m.nickname}</option>)}
+              </select>
+              <select id="leave-reason" className="myinfo-select">
+                <option value="병가">병가</option>
+                <option value="출산휴가">출산휴가</option>
+                <option value="기타">기타</option>
+              </select>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <input type="date" id="leave-start" className="myinfo-input" />
+                <span style={{ lineHeight: '40px' }}>~</span>
+                <input type="date" id="leave-end" className="myinfo-input" />
+              </div>
+              <button className="admin-approve-btn" onClick={async () => {
+                const nick = (document.getElementById('leave-member') as HTMLSelectElement).value
+                const reason = (document.getElementById('leave-reason') as HTMLSelectElement).value
+                const start = (document.getElementById('leave-start') as HTMLInputElement).value
+                const end = (document.getElementById('leave-end') as HTMLInputElement).value
+                if (!nick || !start || !end) { alert('모든 항목을 입력해주세요'); return }
+                await supabase.from('members').update({ leave_start: start, leave_end: end, leave_reason: reason }).eq('nickname', nick)
+                setMembers(prev => prev.map(m => m.nickname === nick ? { ...m, leave_start: start, leave_end: end, leave_reason: reason } : m))
+              }}>휴식 설정</button>
+            </div>
+
+            {/* 대기 중인 신청 */}
+            <div className="admin-section-label" style={{ marginTop: 16 }}>대기 중인 중단 신청</div>
+            {leaves.length === 0 && <p className="admin-empty-sm">대기 중인 중단 신청이 없습니다</p>}
             {leaves.map(l => (
               <div key={l.id} className="admin-member-row">
                 <div className="admin-member-info">
