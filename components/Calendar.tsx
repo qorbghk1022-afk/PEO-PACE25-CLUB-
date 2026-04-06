@@ -36,7 +36,7 @@ function getYearRange(offset: number) {
   const y = now.getFullYear() + offset
   return { start: new Date(y, 0, 1), end: new Date(y, 11, 31) }
 }
-function fmtDate(d: Date) { return d.toISOString().slice(0, 10) }
+function fmtDate(d: Date) { return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}` }
 function fmtShort(d: Date) { return `${d.getMonth() + 1}/${d.getDate()}` }
 
 export default function Calendar({
@@ -83,7 +83,7 @@ export default function Calendar({
 
     supabase
       .from('activities')
-      .select('distance_km, avg_pace_sec')
+      .select('distance_km, avg_pace_sec, date')
       .eq('member_nickname', member.nickname)
       .gte('date', fmtDate(range.start))
       .lte('date', fmtDate(range.end))
@@ -92,7 +92,8 @@ export default function Calendar({
         const distance = acts.reduce((s, a) => s + a.distance_km, 0)
         const longest = acts.length > 0 ? Math.max(...acts.map(a => a.distance_km)) : 0
         const avgPace = acts.length > 0 ? acts.reduce((s, a) => s + a.avg_pace_sec, 0) / acts.length : 0
-        setPeriodStats({ distance, longest, avgPace, days: acts.length })
+        const uniqueDays = new Set(acts.map((a: { date: string }) => a.date)).size
+        setPeriodStats({ distance, longest, avgPace, days: uniqueDays })
       })
   }, [member, period, periodOffset])
 
@@ -101,7 +102,8 @@ export default function Calendar({
     if (!member) return
     setLoading(true)
     const start = `${year}-${String(month).padStart(2, '0')}-01`
-    const end = new Date(year, month, 0).toISOString().slice(0, 10)
+    const lastDay = new Date(year, month, 0).getDate()
+    const end = `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`
     supabase
       .from('activities')
       .select('date, distance_km, avg_pace_sec, moving_time_sec, activity_name')

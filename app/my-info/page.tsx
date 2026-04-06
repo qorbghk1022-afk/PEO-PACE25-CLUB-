@@ -61,7 +61,7 @@ export default function MyInfoPage() {
 
       // 현재 챌린지
       const { data: ch } = await supabase.from('challenges').select('id, start_date')
-        .gte('end_date', new Date().toISOString().slice(0, 10))
+        .gte('end_date', `${new Date().getFullYear()}-${String(new Date().getMonth()+1).padStart(2,'0')}-${String(new Date().getDate()).padStart(2,'0')}`)
         .order('start_date', { ascending: false }).limit(1).maybeSingle()
       if (ch) {
         setCurrentChallengeId(ch.id)
