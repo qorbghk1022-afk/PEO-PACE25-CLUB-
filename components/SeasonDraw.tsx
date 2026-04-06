@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase/client'
 import type { Member } from '@/lib/types'
+import { fetchWithAuth } from '@/lib/fetchWithAuth'
 import GachaMachine from '@/components/GachaMachine'
 
 const QUARTER = {
@@ -34,10 +35,14 @@ const SESSION_DATES = [
 
 const BALL_COLORS = ['#A51C30', '#e74c3c', '#e67e22', '#f39c12', '#27ae60', '#2d5fa0', '#8e44ad', '#16a085', '#d35400', '#2c3e50', '#c0392b', '#7f8c8d', '#1abc9c', '#9b59b6', '#34495e', '#e91e63', '#00bcd4', '#ff9800', '#4caf50', '#3f51b5', '#795548', '#607d8b', '#ff5722', '#009688', '#673ab7', '#cddc39']
 
+interface DrawResult { rank: number; prize: string; winner_nickname: string; ticket_count: number }
+
 export default function SeasonDraw({ member, members }: { member: Member | null; members: Member[] }) {
   const [challengeClears, setChallengeClears] = useState<boolean[]>([])
   const [sessionClears, setSessionClears] = useState<(boolean | null)[]>([])
   const [isDrawing, setIsDrawing] = useState(false)
+  const [drawResults, setDrawResults] = useState<DrawResult[]>([])
+  const [showResults, setShowResults] = useState(false)
 
   const now = new Date()
   const quarterEnd = new Date(QUARTER.end)
@@ -51,6 +56,13 @@ export default function SeasonDraw({ member, members }: { member: Member | null;
   useEffect(() => {
     if (!member) return
     loadTicketData()
+    // 기존 추첨 결과 확인
+    fetch('/api/draw?quarter=Q1-2026').then(r => r.json()).then(({ results }) => {
+      if (results && results.length > 0) {
+        setDrawResults(results)
+        setShowResults(true)
+      }
+    })
   }, [member])
 
   async function loadTicketData() {
@@ -81,10 +93,24 @@ export default function SeasonDraw({ member, members }: { member: Member | null;
   const totalTickets = challengeTickets + sessionTickets
   const maxTickets = CHALLENGE_DATES.length + SESSION_DATES.length * 2
 
-  function handleDraw() {
-    if (!isQuarterOver) return
+  async function handleDraw() {
+    if (!isQuarterOver || showResults) return
     setIsDrawing(true)
-    setTimeout(() => setIsDrawing(false), 3000)
+
+    // 3초 애니메이션 후 추첨 실행
+    setTimeout(async () => {
+      setIsDrawing(false)
+      const res = await fetchWithAuth('/api/draw', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ quarter: 'Q1-2026' })
+      })
+      const { results } = await res.json()
+      if (results) {
+        setDrawResults(results)
+        setShowResults(true)
+      }
+    }, 3000)
   }
 
   return (
@@ -108,10 +134,27 @@ export default function SeasonDraw({ member, members }: { member: Member | null;
         <GachaMachine
           ticketCount={totalTickets}
           totalBalls={totalTickets}
-          disabled={!isQuarterOver}
+          disabled={!isQuarterOver || showResults}
           onDraw={handleDraw}
         />
       </div>
+
+      {/* 추첨 결과 오버레이 */}
+      {showResults && (
+        <div className="draw-result-overlay">
+          <div className="draw-result-popup">
+            <button className="draw-result-close" onClick={() => setShowResults(false)}>x</button>
+            {drawResults.map((r, i) => (
+              <div key={i} className={`draw-result-item ${r.rank === 1 ? 'gold' : r.rank === 2 ? 'silver' : 'bronze'}`}>
+                <span className="draw-result-medal">{r.rank === 1 ? '👑' : r.rank === 2 ? '🥈' : '🥉'}</span>
+                <span className="draw-result-name">{r.winner_nickname}</span>
+                <span className="draw-result-prize">{r.prize}</span>
+              </div>
+            ))}
+            <div className="draw-result-next">다음 분기: 4/20 ~ 7/18</div>
+          </div>
+        </div>
+      )}
 
       {/* 내 추첨권 */}
       {member && (

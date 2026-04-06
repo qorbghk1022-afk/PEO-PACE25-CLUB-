@@ -1815,23 +1815,29 @@ html, body {
 }
 
 /* 추첨 결과 */
-.draw-result {
-  background: #f5efe6; border: 3px solid #333; border-radius: 12px;
-  padding: 20px; box-shadow: 4px 4px 0 #333; margin-top: 16px;
+.draw-result-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+  display: flex; align-items: center; justify-content: center; z-index: 100;
 }
-.draw-result-title { font-size: 18px; font-weight: 700; text-align: center; margin-bottom: 16px; }
+.draw-result-popup {
+  background: #f5efe6; border: 3px solid #333; border-radius: 16px;
+  padding: 24px 20px; box-shadow: 4px 4px 0 #333;
+  width: 300px; position: relative;
+  font-family: 'Pretendard', sans-serif;
+}
+.draw-result-close {
+  position: absolute; top: 10px; right: 14px; background: none; border: none;
+  font-size: 20px; cursor: pointer; color: #999;
+}
 .draw-result-item {
-  display: flex; align-items: center; gap: 12px; padding: 10px;
-  border-bottom: 1px solid #ddd; font-size: 14px;
+  display: flex; align-items: center; gap: 10px; padding: 12px 0;
+  border-bottom: 1px solid #e0d5c5; font-size: 14px;
 }
 .draw-result-item:last-of-type { border-bottom: none; }
-.draw-result-rank { width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; color: #fff; }
-.draw-result-item.gold .draw-result-rank { background: #d4a017; }
-.draw-result-item.silver .draw-result-rank { background: #888; }
-.draw-result-item.bronze .draw-result-rank { background: #a0522d; }
-.draw-result-name { flex: 1; font-weight: 700; }
-.draw-result-prize { font-size: 12px; color: #666; }
-.draw-result-next { text-align: center; margin-top: 16px; font-size: 12px; color: #999; }
+.draw-result-medal { font-size: 22px; }
+.draw-result-name { flex: 1; font-weight: 700; font-size: 16px; }
+.draw-result-prize { font-size: 12px; color: #888; }
+.draw-result-next { text-align: center; margin-top: 14px; font-size: 11px; color: #999; }
 
 /* ============================
    온보딩 - 알 선택
