@@ -53,15 +53,21 @@ export default function CrewAdminPage() {
     setLoading(false)
   }
 
+  async function adminAction(body: Record<string, unknown>) {
+    await fetchWithAuth('/api/crew/admin', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    })
+  }
+
   async function handleKick(nickname: string) {
     if (!confirm(`${nickname}님을 정말 강퇴할까요?`)) return
-    await supabase.from('crew_members').delete().eq('crew_id', crewId).eq('member_nickname', nickname)
-    await supabase.from('members').update({ crew_id: null }).eq('nickname', nickname)
+    await adminAction({ action: 'kick', nickname })
     setMembers(prev => prev.filter(m => m.nickname !== nickname))
   }
 
   async function handleRemarkSave(nickname: string, remark: string) {
-    await supabase.from('members').update({ remark }).eq('nickname', nickname)
+    await adminAction({ action: 'set_remark', nickname, remark })
     setMembers(prev => prev.map(m => m.nickname === nickname ? { ...m, remark } : m))
   }
 
@@ -158,7 +164,7 @@ export default function CrewAdminPage() {
                   <div className="admin-member-sub">{m.leave_start} ~ {m.leave_end}</div>
                 </div>
                 <button className="admin-sm-btn" onClick={async () => {
-                  await supabase.from('members').update({ leave_start: null, leave_end: null, leave_reason: null }).eq('nickname', m.nickname)
+                  await adminAction({ action: 'clear_leave', nickname: m.nickname })
                   setMembers(prev => prev.map(x => x.nickname === m.nickname ? { ...x, leave_start: null, leave_end: null, leave_reason: null } : x))
                   alert(`${m.nickname}님 휴식 해제 완료`)
                 }}>해제</button>
@@ -188,7 +194,7 @@ export default function CrewAdminPage() {
                 const start = (document.getElementById('leave-start') as HTMLInputElement).value
                 const end = (document.getElementById('leave-end') as HTMLInputElement).value
                 if (!nick || !start || !end) { alert('모든 항목을 입력해주세요'); return }
-                await supabase.from('members').update({ leave_start: start, leave_end: end, leave_reason: reason }).eq('nickname', nick)
+                await adminAction({ action: 'set_leave', nickname: nick, leave_start: start, leave_end: end, leave_reason: reason })
                 setMembers(prev => prev.map(m => m.nickname === nick ? { ...m, leave_start: start, leave_end: end, leave_reason: reason } : m))
                 alert(`${nick}님 휴식 설정 완료 (${start} ~ ${end})`)
               }}>휴식 설정</button>
