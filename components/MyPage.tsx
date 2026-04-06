@@ -184,14 +184,13 @@ export default function MyPage({
       <div className="retro-section" style={{ marginTop: 16 }}>
         <div className="strava-connect">
           {stravaConnected ? (
-            <div className="strava-status connected">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#27ae60" strokeWidth="2"><polyline points="20 6 9 17 4 12"/></svg>
-              Strava 연동됨
+            <div className="strava-connected-row">
+              <img src="/powered_by_strava.png" alt="Powered by Strava" className="strava-powered-logo" />
+              <span className="strava-status connected">연동됨</span>
             </div>
           ) : (
-            <a href={`/api/strava/auth?userId=${currentUserId}`} className="strava-btn">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#FC4C02" strokeWidth="2"><polyline points="15 18 10 6 5 18"/><polyline points="18 18 15 12 12 18"/></svg>
-              Strava 연동하기
+            <a href={`/api/strava/auth?userId=${currentUserId}`}>
+              <img src="/btn_strava_connect.png" alt="Connect with Strava" className="strava-connect-btn" />
             </a>
           )}
         </div>

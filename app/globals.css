@@ -1844,16 +1844,14 @@ html, body {
    ============================ */
 /* Strava 연동 */
 .strava-connect { padding: 14px 16px; text-align: center; }
-.strava-btn {
-  display: inline-flex; align-items: center; gap: 8px;
-  padding: 12px 24px; border-radius: 10px;
-  background: #fff; border: 2px solid #FC4C02; color: #FC4C02;
-  font-size: 14px; font-weight: 700; text-decoration: none;
-  font-family: 'RoundedFixedsys', monospace;
+.strava-connect-btn { height: 48px; width: auto; }
+.strava-powered-logo { height: 24px; width: auto; }
+.strava-connected-row {
+  display: flex; align-items: center; gap: 10px; justify-content: center;
 }
 .strava-status {
   display: inline-flex; align-items: center; gap: 6px;
-  font-size: 14px; font-weight: 600; color: #27ae60;
+  font-size: 13px; font-weight: 600; color: #27ae60;
   font-family: 'RoundedFixedsys', monospace;
 }
 

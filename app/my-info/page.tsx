@@ -223,12 +223,15 @@ export default function MyInfoPage() {
         <div className="myinfo-section">
           <div className="myinfo-section-title">Strava</div>
           {stravaConnected ? (
-            <div className="myinfo-row"><span className="strava-status connected">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#27ae60" strokeWidth="2"><polyline points="20 6 9 17 4 12"/></svg> 연동됨
-            </span></div>
+            <div className="myinfo-row strava-connected-row">
+              <img src="/powered_by_strava.png" alt="Powered by Strava" className="strava-powered-logo" />
+              <span className="strava-status connected">연동됨</span>
+            </div>
           ) : (
             <div className="myinfo-row">
-              <a href={`/api/strava/auth?userId=${userId}`} className="strava-btn">Strava 연동하기</a>
+              <a href={`/api/strava/auth?userId=${userId}`}>
+                <img src="/btn_strava_connect.png" alt="Connect with Strava" className="strava-connect-btn" />
+              </a>
             </div>
           )}
         </div>
