@@ -108,6 +108,17 @@ export default function Home() {
         }).catch(() => {})
       }
     })
+
+    // 다른 페이지 갔다 돌아올 때 데이터 새로 로드
+    const handleFocus = () => {
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        if (!session) return
+        const saved = localStorage.getItem('peo_active_crew')
+        if (saved) loadData(session.user.id, saved)
+      })
+    }
+    window.addEventListener('focus', handleFocus)
+    return () => window.removeEventListener('focus', handleFocus)
   }, [])
 
   async function loadData(userId?: string, userCrewId?: string) {
