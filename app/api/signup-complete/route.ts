@@ -55,13 +55,14 @@ export async function POST(req: NextRequest) {
     if (realName || phone || address) {
       const encPhone = phone ? encrypt(phone) : null
       const encAddress = address ? encrypt(address) : null
+      const now = new Date().toISOString()
       await supabaseAdmin.from('member_profiles').upsert({
         user_id: userId,
         real_name: realName || null,
-        phone_encrypted: encPhone,
-        address_encrypted: encAddress,
-        privacy_agreed: privacyAgreed,
-        strava_agreed: stravaAgreed,
+        phone_enc: encPhone,
+        address_enc: encAddress,
+        privacy_agreed_at: privacyAgreed ? now : null,
+        strava_agreed_at: stravaAgreed ? now : null,
       }, { onConflict: 'user_id' })
     }
 
