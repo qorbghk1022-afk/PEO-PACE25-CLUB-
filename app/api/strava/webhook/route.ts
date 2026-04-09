@@ -35,8 +35,28 @@ export async function POST(req: NextRequest) {
     const event = await req.json()
     console.log('[Strava Webhook] Event received:', JSON.stringify(event))
 
-    // Only process activity creation events
-    if (event.object_type !== 'activity' || event.aspect_type !== 'create') {
+    // Only process activity events
+    if (event.object_type !== 'activity') {
+      return NextResponse.json({ ok: true, skipped: true })
+    }
+
+    // Handle activity deletion
+    if (event.aspect_type === 'delete') {
+      const db = createServiceClient()
+      const { error: delErr } = await db
+        .from('activities')
+        .delete()
+        .eq('strava_activity_id', event.object_id)
+      if (delErr) {
+        console.error(`[Strava Webhook] Delete error:`, delErr.message)
+        return NextResponse.json({ error: delErr.message }, { status: 500 })
+      }
+      console.log(`[Strava Webhook] Deleted activity ${event.object_id}`)
+      return NextResponse.json({ ok: true, deleted: event.object_id })
+    }
+
+    // Only process activity creation events beyond this point
+    if (event.aspect_type !== 'create') {
       return NextResponse.json({ ok: true, skipped: true })
     }
 

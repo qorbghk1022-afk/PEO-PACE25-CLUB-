@@ -74,18 +74,20 @@ export default function Home() {
       }
 
       // 크루 소속 체크
+      const isAdmin = session.user.email === 'a5214275@naver.com'
       const { data: crewMembers } = await supabase
         .from('crew_members').select('crew_id').eq('user_id', session.user.id)
 
       if (!crewMembers || crewMembers.length === 0) {
-        router.push('/crew-select')
-        return
+        if (!isAdmin) { router.push('/crew-select'); return }
       }
 
-      // 저장된 크루 or 첫 번째 크루
+      // 저장된 크루 or 첫 번째 크루 (관리자는 아무 크루 접속 가능)
       const saved = localStorage.getItem('peo_active_crew')
-      const validSaved = saved && crewMembers.some(cm => cm.crew_id === saved)
-      const activeCrewId = validSaved ? saved : crewMembers[0].crew_id
+      const validSaved = saved && (isAdmin || crewMembers?.some(cm => cm.crew_id === saved))
+      const activeCrewId = validSaved ? saved : crewMembers?.[0]?.crew_id
+
+      if (!activeCrewId) { router.push('/crew-select'); return }
 
       setCrewId(activeCrewId)
       localStorage.setItem('peo_active_crew', activeCrewId)

@@ -60,7 +60,10 @@ export async function GET(request: Request) {
     // ─── Step 3: Check if current challenge has ended ───
     const challengeResult = await handleChallengeRotation(db, log)
 
-    // ─── Step 4: Log ───
+    // ─── Step 4: Cleanup stale Strava raw data (7-day cache) ───
+    const cleanupResult = await cleanupStravaCache(db, log)
+
+    // ─── Step 5: Log ───
     await db.from('sync_logs').insert({
       activity_count: sheetResult.count,
       status: 'success',
@@ -72,6 +75,7 @@ export async function GET(request: Request) {
       sheet: sheetResult,
       strava: stravaResult,
       challenge: challengeResult,
+      cleanup: cleanupResult,
       log,
     })
   } catch (error) {
@@ -547,6 +551,80 @@ async function assignTeams(
   }
 
   return teamAssignments
+}
+
+// ═══════════════════════════════════════════════════════════
+// Cleanup stale Strava raw activity data (7-day cache policy)
+// Only deletes Strava activities older than 7 days whose
+// season scores have already been calculated.
+// ═══════════════════════════════════════════════════════════
+async function cleanupStravaCache(
+  db: ReturnType<typeof createServiceClient>,
+  log: string[],
+) {
+  try {
+    const cutoffDate = new Date()
+    cutoffDate.setDate(cutoffDate.getDate() - 7)
+    const cutoff = toDateStr(cutoffDate)
+
+    // Find seasons that ended before the cutoff and have scores calculated
+    const { data: scoredSeasons } = await db
+      .from('seasons')
+      .select('id, end_date')
+      .lt('end_date', cutoff)
+
+    if (!scoredSeasons || scoredSeasons.length === 0) {
+      log.push('Cleanup: no completed seasons older than 7 days')
+      return { deleted: 0 }
+    }
+
+    let totalDeleted = 0
+
+    for (const season of scoredSeasons) {
+      // Verify scores exist for this season
+      const { count: scoreCount } = await db
+        .from('member_season_stats')
+        .select('id', { count: 'exact', head: true })
+        .eq('season_id', season.id)
+
+      if (!scoreCount || scoreCount === 0) {
+        // Scores not yet calculated, skip deletion
+        continue
+      }
+
+      // Find the season's start_date
+      const { data: seasonData } = await db
+        .from('seasons')
+        .select('start_date')
+        .eq('id', season.id)
+        .single()
+
+      if (!seasonData) continue
+
+      // Delete Strava activities within this scored season's date range
+      const { data: deleted, error: delErr } = await db
+        .from('activities')
+        .delete()
+        .not('strava_activity_id', 'is', null)
+        .gte('date', seasonData.start_date)
+        .lte('date', season.end_date)
+        .select('id')
+
+      if (delErr) {
+        log.push(`Cleanup error (season ${season.id}): ${delErr.message}`)
+        continue
+      }
+
+      totalDeleted += deleted?.length ?? 0
+    }
+
+    log.push(`Cleanup: ${totalDeleted} stale Strava activities deleted`)
+    return { deleted: totalDeleted }
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e)
+    log.push(`Cleanup error: ${msg}`)
+    return { deleted: 0 }
+  }
 }
 
 // ═══════════════════════════════════════════════════════════

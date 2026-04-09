@@ -55,7 +55,7 @@ export default function ChallengeBoard({
   const [leaderNickname, setLeaderNickname] = useState<string | null>(null)
   const [totalFine, setTotalFine] = useState(0)
   const [viewMode, setViewMode] = useState<'2week' | 'quarter' | 'all'>('2week')
-  const [quarterStats, setQuarterStats] = useState<{ nickname: string; dist: number; fine: number; clears: number }[]>([])
+  const [quarterStats, setQuarterStats] = useState<{ nickname: string; dist: number; fine: number; clears: number; sessions: boolean[]; totalTickets: number }[]>([])
   const [allTimeStats, setAllTimeStats] = useState<{ nickname: string; lv: number; dist: number; score: number }[]>([])
   const [selectedProfile, setSelectedProfile] = useState<Member | null>(null)
 
@@ -132,12 +132,37 @@ export default function ChallengeBoard({
       }
     }
 
-    const stats = members.map(m => ({
-      nickname: m.nickname,
-      dist: Math.round((distMap[m.nickname] || 0) * 10) / 10,
-      fine: fineMap[m.nickname] || 0,
-      clears: clearMap[m.nickname] || 0,
-    })).sort((a, b) => b.dist - a.dist)
+    // 정기세션 체크 (매월 3째주 토요일 15km)
+    const sessionDates = ['2026-02-21', '2026-03-21', '2026-04-18']
+    const sessionMap: Record<string, boolean[]> = {}
+    // 2월 수동 참여자 (데이터 확인됨)
+    const feb21Manual = ['멀루', '네모러너', '머룬', 'JM', '백화']
+    for (const nick of members.map(m => m.nickname)) {
+      const sessions: boolean[] = []
+      for (let si = 0; si < sessionDates.length; si++) {
+        const sd = sessionDates[si]
+        if (new Date(sd) > new Date()) { sessions.push(false); continue }
+        if (si === 0 && feb21Manual.includes(nick)) { sessions.push(true); continue }
+        // DB에서 확인
+        const dayActs = (acts || []).filter(a => a.member_nickname === nick && a.date === sd)
+        const dayTotal = dayActs.reduce((s, a) => s + a.distance_km, 0)
+        sessions.push(dayTotal >= 15)
+      }
+      sessionMap[nick] = sessions
+    }
+
+    const stats = members.map(m => {
+      const sessions = sessionMap[m.nickname] || [false, false, false]
+      const sessionTickets = sessions.filter(Boolean).length * 2
+      return {
+        nickname: m.nickname,
+        dist: Math.round((distMap[m.nickname] || 0) * 10) / 10,
+        fine: fineMap[m.nickname] || 0,
+        clears: clearMap[m.nickname] || 0,
+        sessions,
+        totalTickets: (clearMap[m.nickname] || 0) + sessionTickets,
+      }
+    }).sort((a, b) => b.dist - a.dist)
 
     setQuarterStats(stats)
 
@@ -339,6 +364,7 @@ export default function ChallengeBoard({
                   <th>RUNNER</th>
                   <th>DIST<br/>(km)</th>
                   <th>Penalty</th>
+                  <th>SESSION</th>
                   <th>TICKET</th>
                 </tr>
               </thead>
@@ -352,11 +378,18 @@ export default function ChallengeBoard({
                       <td className="rank-runner cb-clickable" onClick={() => { const mem = members.find(x => x.nickname === m.nickname); if (mem) setSelectedProfile(mem) }}>{m.nickname === leaderNickname ? <span className="leader-name">{'>'} {m.nickname} {'<'}</span> : m.nickname}</td>
                       <td>{m.dist.toFixed(1)}</td>
                       <td>{m.fine > 0 ? m.fine.toLocaleString() : '-'}</td>
+                      <td className="cb-session">
+                        <div className="session-dots">
+                          {m.sessions.map((s, si) => (
+                            <span key={si} className={`session-dot ${s ? 'active' : ''}`} />
+                          ))}
+                        </div>
+                      </td>
                       <td className="cb-ticket">
-                        {m.clears > 0 ? (
+                        {m.totalTickets > 0 ? (
                           <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 2 }}>
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#A51C30" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 9a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v1a2 2 0 0 0 0 4v1a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-1a2 2 0 0 0 0-4V9z"/><path d="M9 7v10"/></svg>
-                            x{m.clears}
+                            x{m.totalTickets}
                           </span>
                         ) : '-'}
                       </td>

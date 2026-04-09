@@ -24,6 +24,8 @@ export default function MyInfoPage() {
   const [showLeaveForm, setShowLeaveForm] = useState(false)
   const [leaveReason, setLeaveReason] = useState('병가')
   const [leaveDetail, setLeaveDetail] = useState('')
+  const [leaveStart, setLeaveStart] = useState('')
+  const [leaveEnd, setLeaveEnd] = useState('')
   const [leaveMsg, setLeaveMsg] = useState('')
   const [currentChallengeId, setCurrentChallengeId] = useState<string | null>(null)
   const [leaveDisabled, setLeaveDisabled] = useState(false)
@@ -75,6 +77,8 @@ export default function MyInfoPage() {
 
   async function handleNicknameSave() {
     if (!newNickname.trim()) return
+    const banned = ['시발','씨발','병신','지랄','개새끼','fuck','shit','bitch','asshole','nigger','sex','섹스','야동','porn','죽어','살인']
+    if (banned.some(w => newNickname.trim().toLowerCase().includes(w))) { setNicknameMsg('사용할 수 없는 닉네임이에요'); return }
     const { data: existing } = await supabase.from('members').select('nickname').eq('nickname', newNickname.trim()).maybeSingle()
     if (existing) { setNicknameMsg('이미 사용 중인 닉네임이에요'); return }
     await supabase.from('members').update({ nickname: newNickname.trim() }).eq('nickname', nickname)
@@ -113,9 +117,11 @@ export default function MyInfoPage() {
 
   async function handleLeaveSubmit() {
     if (!currentChallengeId || !nickname) return
+    if (!leaveStart || !leaveEnd) { setLeaveMsg('중단 기간을 선택해주세요'); return }
+    if (leaveStart > leaveEnd) { setLeaveMsg('시작일이 종료일보다 늦을 수 없습니다'); return }
     const res = await fetchWithAuth('/api/challenge/leave', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ nickname, challengeId: currentChallengeId, reason: leaveReason, reasonDetail: leaveDetail })
+      body: JSON.stringify({ nickname, challengeId: currentChallengeId, reason: leaveReason, reasonDetail: leaveDetail, leaveStart, leaveEnd })
     })
     const data = await res.json()
     if (res.ok) {
@@ -223,10 +229,39 @@ export default function MyInfoPage() {
         <div className="myinfo-section">
           <div className="myinfo-section-title">Strava</div>
           {stravaConnected ? (
-            <div className="myinfo-row strava-connected-row">
-              <img src="/powered_by_strava.png" alt="Powered by Strava" className="strava-powered-logo" />
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#27ae60" strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg>
-            </div>
+            <>
+              <div className="myinfo-row strava-connected-row">
+                <img src="/powered_by_strava.png" alt="Powered by Strava" className="strava-powered-logo" />
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#27ae60" strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg>
+              </div>
+              <div className="myinfo-row">
+                <span>연동 해제</span>
+                <button className="myinfo-edit-btn" onClick={async () => {
+                  if (!confirm('Strava 연동을 해제할까요? PEO 계정은 유지되며, 자동 동기화가 중단됩니다.')) return
+                  await supabase.from('strava_tokens').delete().eq('user_id', userId!)
+                  await supabase.from('members').update({ strava_athlete_id: null }).eq('user_id', userId!)
+                  setStravaConnected(false)
+                  alert('Strava 연동이 해제되었습니다.')
+                }}>해제</button>
+              </div>
+              <div className="myinfo-row">
+                <span>데이터 삭제</span>
+                <button className="myinfo-edit-btn" onClick={async () => {
+                  if (!confirm('Strava에서 가져온 활동 데이터를 삭제할까요? PEO 점수는 유지됩니다.')) return
+                  const res = await fetchWithAuth('/api/strava/delete-data', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ nickname }),
+                  })
+                  if (res.ok) {
+                    const data = await res.json()
+                    alert(`Strava 활동 데이터 ${data.deleted}건이 삭제되었습니다.`)
+                  } else {
+                    alert('삭제 실패. 다시 시도해주세요.')
+                  }
+                }}>삭제</button>
+              </div>
+            </>
           ) : (
             <div className="myinfo-row">
               <a href={`/api/strava/auth?userId=${userId}`}>
@@ -240,9 +275,9 @@ export default function MyInfoPage() {
         <div className="myinfo-section">
           <div className="myinfo-section-title">챌린지 중단</div>
           {leaveDisabled ? (
-            <p className="myinfo-msg">챌린지 시작 7일 이후에는 중단 신청이 불가합니다</p>
+            <div className="myinfo-row"><span>챌린지 중단</span><span style={{ fontSize: 12, color: '#999' }}>7일 경과</span></div>
           ) : !currentChallengeId ? (
-            <p className="myinfo-msg">진행 중인 챌린지가 없습니다</p>
+            <div className="myinfo-row"><span>챌린지 중단</span><span style={{ fontSize: 12, color: '#999' }}>진행 중 없음</span></div>
           ) : showLeaveForm ? (
             <div className="myinfo-leave-form">
               <select className="myinfo-select" value={leaveReason} onChange={e => setLeaveReason(e.target.value)}>
@@ -253,13 +288,22 @@ export default function MyInfoPage() {
               {leaveReason === '기타' && (
                 <input className="myinfo-input" placeholder="사유를 입력해주세요" value={leaveDetail} onChange={e => setLeaveDetail(e.target.value)} />
               )}
-              <div className="myinfo-edit-row">
+              <div className="myinfo-section-title" style={{ marginTop: 8 }}>중단 기간</div>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                <input type="date" className="myinfo-input" value={leaveStart} onChange={e => setLeaveStart(e.target.value)} />
+                <span>~</span>
+                <input type="date" className="myinfo-input" value={leaveEnd} onChange={e => setLeaveEnd(e.target.value)} />
+              </div>
+              <div className="myinfo-edit-row" style={{ marginTop: 8 }}>
                 <button className="myinfo-save-btn" onClick={handleLeaveSubmit}>신청</button>
                 <button className="myinfo-cancel-btn" onClick={() => setShowLeaveForm(false)}>취소</button>
               </div>
             </div>
           ) : (
-            <button className="myinfo-leave-btn" onClick={() => setShowLeaveForm(true)}>챌린지 중단 신청</button>
+            <div className="myinfo-row">
+              <span>챌린지 중단</span>
+              <button className="myinfo-edit-btn" onClick={() => setShowLeaveForm(true)}>신청</button>
+            </div>
           )}
           {leaveMsg && <p className="myinfo-msg">{leaveMsg}</p>}
         </div>
@@ -269,6 +313,11 @@ export default function MyInfoPage() {
           <a href="/policy/terms" className="myinfo-link">서비스 이용약관 ›</a>
           <a href="/policy/privacy" className="myinfo-link">개인정보 처리방침 ›</a>
           <a href="/policy/all" className="myinfo-link">이용약관 및 개인정보 처리방침 ›</a>
+        </div>
+
+        {/* 문의 */}
+        <div className="myinfo-section" style={{ textAlign: 'center' }}>
+          <p style={{ fontSize: 13, color: '#999', margin: '8px 0' }}>문의: a5214275@naver.com</p>
         </div>
 
         {/* 로그아웃 / 탈퇴 */}

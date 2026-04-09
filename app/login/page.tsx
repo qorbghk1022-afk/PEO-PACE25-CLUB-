@@ -114,6 +114,15 @@ export default function LoginPage() {
   async function checkNickname() {
     if (!nickname.trim()) { setNicknameMsg('닉네임을 입력해주세요'); return }
 
+    // 불쾌한 닉네임 필터
+    const banned = ['시발','씨발','병신','지랄','개새끼','fuck','shit','bitch','asshole','nigger','sex','섹스','야동','porn','죽어','살인']
+    const lower = nickname.trim().toLowerCase()
+    if (banned.some(w => lower.includes(w))) {
+      setNicknameMsg('✗ 사용할 수 없는 닉네임이에요')
+      setNicknameChecked(false)
+      return
+    }
+
     // 정확히 일치하는 닉네임 검색
     const { data } = await supabase
       .from('members')

@@ -6,7 +6,7 @@ export async function POST(req: NextRequest) {
   const { userId, error: authError } = await verifySession(req)
   if (authError || !userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { nickname, challengeId, reason, reasonDetail } = await req.json()
+  const { nickname, challengeId, reason, reasonDetail, leaveStart, leaveEnd } = await req.json()
   if (!nickname || !challengeId || !reason) return NextResponse.json({ error: '필수 정보 누락' }, { status: 400 })
 
   const admin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
@@ -36,8 +36,8 @@ export async function POST(req: NextRequest) {
     if (crew) {
       await admin.from('notifications').insert({
         user_id: crew.leader_user_id, type: 'challenge_leave',
-        title: `${nickname}님이 챌린지 중단을 신청했습니다 (사유: ${reason})`,
-        metadata: { leave_id: leave?.id, member_nickname: nickname, reason }
+        title: `${nickname}님이 챌린지 중단을 신청했습니다 (사유: ${reason}, ${leaveStart || ''}~${leaveEnd || ''})`,
+        metadata: { leave_id: leave?.id, member_nickname: nickname, reason, leaveStart, leaveEnd }
       })
     }
   }
@@ -54,10 +54,26 @@ export async function PATCH(req: NextRequest) {
 
   const admin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
 
+  // 신청 데이터 가져오기
+  const { data: leaveData } = await admin.from('challenge_leaves').select('*, notifications!inner(metadata)').eq('id', leaveId).maybeSingle()
+
   await admin.from('challenge_leaves').update({
     status: action === 'approve' ? 'approved' : 'rejected',
     reviewed_by: userId, reviewed_at: new Date().toISOString()
   }).eq('id', leaveId)
+
+  // 승인 시 members에 leave 기간 설정
+  if (action === 'approve' && leaveData) {
+    const nick = leaveData.member_nickname
+    const reason = leaveData.reason
+    // 알림 메타데이터에서 날짜 가져오기, 없으면 챌린지 기간 사용
+    const { data: challenge } = await admin.from('challenges').select('start_date, end_date').eq('id', leaveData.challenge_id).single()
+    const start = challenge?.start_date
+    const end = challenge?.end_date
+    if (nick && start && end) {
+      await admin.from('members').update({ leave_start: start, leave_end: end, leave_reason: reason }).eq('nickname', nick)
+    }
+  }
 
   return NextResponse.json({ success: true })
 }

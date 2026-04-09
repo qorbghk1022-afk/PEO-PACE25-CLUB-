@@ -1094,7 +1094,18 @@ html, body {
   max-width: 600px; margin: 0 auto; padding: 40px 20px;
 }
 .policy-page h1 { font-size: 22px; font-weight: 700; margin-bottom: 20px; }
-.policy-page p { font-size: 15px; color: #555; line-height: 1.7; }
+.policy-page h2 { font-size: 17px; font-weight: 700; margin: 24px 0 10px; }
+.policy-page h3 { font-size: 15px; font-weight: 600; margin: 16px 0 8px; color: #555; }
+.policy-page p { font-size: 14px; color: #555; line-height: 1.7; }
+.policy-table {
+  width: 100%; border-collapse: collapse; margin: 8px 0 16px; font-size: 13px;
+}
+.policy-table th {
+  background: #f5f5f5; padding: 10px 12px; text-align: left; border: 1px solid #ddd; font-weight: 600;
+}
+.policy-table td {
+  padding: 10px 12px; border: 1px solid #ddd; color: #555;
+}
 
 /* 사이드 메뉴 프로필 */
 .side-menu-profile {
@@ -1587,6 +1598,13 @@ html, body {
   color: #999;
   font-style: italic;
 }
+.cb-session { text-align: center; }
+.session-dots { display: flex; justify-content: center; gap: 4px; }
+.session-dot {
+  width: 10px; height: 10px; border-radius: 50%;
+  background: #ddd; border: 1px solid #ccc;
+}
+.session-dot.active { background: #27ae60; border-color: #27ae60; }
 .cb-rest-row {
   opacity: 0.5;
 }

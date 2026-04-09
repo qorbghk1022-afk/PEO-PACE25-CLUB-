@@ -16,12 +16,19 @@ export async function POST(req: NextRequest) {
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   )
 
+  // 크루 생성 자격 확인 (누적 1000km 이상)
+  const { data: memberData } = await admin.from('members').select('total_dist').eq('user_id', userId).maybeSingle()
+  if (!memberData || (memberData.total_dist || 0) < 1000) {
+    return NextResponse.json({ error: '크루 생성은 누적 1,000km 이상 달린 러너만 가능합니다' }, { status: 403 })
+  }
+
   // 이름 중복 체크
   const { data: existing } = await admin.from('crews').select('id').eq('name', name).maybeSingle()
   if (existing) return NextResponse.json({ error: '이미 존재하는 크루명입니다' }, { status: 409 })
 
-  // TODO: 테스트 완료 후 아래 주석 해제
-  // const { data: alreadyLeader } = await admin.from('crews').select('id').eq('leader_user_id', userId).maybeSingle()
+  // 1인 1크루 생성 제한
+  const { data: alreadyLeader } = await admin.from('crews').select('id').eq('leader_user_id', userId).maybeSingle()
+  if (alreadyLeader) return NextResponse.json({ error: '크루는 한 개만 만들 수 있습니다' }, { status: 409 })
   // if (alreadyLeader) return NextResponse.json({ error: '크루는 한 개만 만들 수 있습니다' }, { status: 409 })
 
   // 크루 생성

@@ -17,6 +17,7 @@ export type Member = {
   leave_start: string | null
   leave_end: string | null
   leave_reason: string | null
+  strava_athlete_id: number | null
 }
 
 export type SeasonStats = {

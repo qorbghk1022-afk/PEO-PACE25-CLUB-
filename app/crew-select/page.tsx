@@ -144,7 +144,14 @@ export default function CrewSelectPage() {
             <h1 className="cs-title">크루를 선택하세요</h1>
             <p className="cs-subtitle">러닝 크루에 가입하거나 새로운 크루를 만들어보세요</p>
             <div className="cs-buttons">
-              <button className="cs-btn" onClick={() => setMode('create')}>
+              <button className="cs-btn" onClick={async () => {
+                const { data: mem } = await supabase.from('members').select('total_dist').eq('user_id', userId).maybeSingle()
+                if (!mem || (mem.total_dist || 0) < 1000) {
+                  alert(`크루 생성은 누적 1,000km 이상 달린 러너만 가능합니다.\n현재: ${(mem?.total_dist || 0).toFixed(1)}km`)
+                  return
+                }
+                setMode('create')
+              }}>
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#111" strokeWidth="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
                 <span>크루 만들기</span>
               </button>
