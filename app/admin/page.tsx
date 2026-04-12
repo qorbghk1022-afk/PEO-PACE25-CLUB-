@@ -101,7 +101,7 @@ export default function AdminDashboard() {
       { data: seasonsData },
       { data: draws },
     ] = await Promise.all([
-      supabase.from('members').select('*').eq('crew_id', selectedCrewId).order('lv', { ascending: false }),
+      supabase.from('members').select('*').order('lv', { ascending: false }),
       supabase.from('strava_tokens').select('user_id'),
       supabase.from('challenge_leaves').select('*').order('requested_at', { ascending: false }),
       supabase.from('payments').select('*').order('created_at', { ascending: false }),
@@ -114,7 +114,12 @@ export default function AdminDashboard() {
     ])
 
     const stravaSet = new Set((stravaTokens || []).map(t => t.user_id))
-    const memsWithExtra = (mems || []).map(m => ({
+    // 해당 크루 멤버 필터 (crew_id 또는 crew_members 기준)
+    const { data: crewMembersList } = await supabase.from('crew_members').select('member_nickname, user_id').eq('crew_id', selectedCrewId)
+    const crewNicks = new Set((crewMembersList || []).map(cm => cm.member_nickname).filter(Boolean))
+    const crewUserIds = new Set((crewMembersList || []).map(cm => cm.user_id).filter(Boolean))
+    const filteredMems = (mems || []).filter(m => m.crew_id === selectedCrewId || crewNicks.has(m.nickname) || (m.user_id && crewUserIds.has(m.user_id)))
+    const memsWithExtra = filteredMems.map(m => ({
       ...m,
       strava: m.user_id ? stravaSet.has(m.user_id) : false,
     })) as MemberInfo[]
@@ -416,7 +421,7 @@ export default function AdminDashboard() {
       </header>
 
       {/* 크루 선택 */}
-      <div style={{ padding: '8px 16px', borderBottom: '1px solid #eee', display: 'flex', gap: 6, overflowX: 'auto' }}>
+      <div style={{ padding: '8px 16px', borderBottom: '1px solid #eee', display: 'flex', gap: 6, overflowX: 'auto', alignItems: 'center' }}>
         {crews.map(c => (
           <button key={c.id} onClick={() => setSelectedCrewId(c.id)} style={{
             padding: '6px 14px', borderRadius: 20, border: 'none', fontSize: 13, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap',
@@ -426,6 +431,24 @@ export default function AdminDashboard() {
             {c.name} ({c.member_count})
           </button>
         ))}
+        <button style={{ marginLeft: 'auto', padding: '4px 10px', borderRadius: 6, border: '1px solid #e53935', background: 'none', color: '#e53935', fontSize: 11, cursor: 'pointer', whiteSpace: 'nowrap' }}
+          onClick={async () => {
+            const crew = crews.find(c => c.id === selectedCrewId)
+            if (!crew) return
+            if (!confirm(`"${crew.name}" 크루를 삭제할까요? (${crew.member_count}명)`)) return
+            if (!confirm('정말 삭제하시겠습니까? 되돌릴 수 없습니다.')) return
+            await supabase.from('crew_members').delete().eq('crew_id', selectedCrewId)
+            await supabase.from('members').update({ crew_id: null }).eq('crew_id', selectedCrewId)
+            const { data: chs } = await supabase.from('challenges').select('id').eq('crew_id', selectedCrewId)
+            if (chs) await supabase.from('challenge_teams').delete().in('challenge_id', chs.map(c => c.id))
+            await supabase.from('challenges').delete().eq('crew_id', selectedCrewId)
+            await supabase.from('seasons').delete().eq('crew_id', selectedCrewId)
+            await supabase.from('crew_join_requests').delete().eq('crew_id', selectedCrewId)
+            await supabase.from('crews').delete().eq('id', selectedCrewId)
+            setCrews(prev => prev.filter(c => c.id !== selectedCrewId))
+            if (crews.length > 1) setSelectedCrewId(crews.find(c => c.id !== selectedCrewId)?.id || '')
+            alert('크루가 삭제되었습니다.')
+          }}>삭제</button>
       </div>
 
       <div className="admin-summary">
