@@ -43,6 +43,9 @@ export default function MyInfoPage() {
   const [newPw, setNewPw] = useState('')
   const [confirmPw, setConfirmPw] = useState('')
   const [pwMsg, setPwMsg] = useState('')
+  const [showCurrentPw, setShowCurrentPw] = useState(false)
+  const [showNewPw, setShowNewPw] = useState(false)
+  const [showConfirmPw, setShowConfirmPw] = useState(false)
 
   // 사진 업로드
   const [uploading, setUploading] = useState(false)
@@ -283,9 +286,30 @@ export default function MyInfoPage() {
           <div className="myinfo-section-title">비밀번호</div>
           {showPwForm ? (
             <div className="myinfo-leave-form">
-              <input className="myinfo-input" type="password" placeholder="현재 비밀번호" value={currentPw} onChange={e => setCurrentPw(e.target.value)} />
-              <input className="myinfo-input" type="password" placeholder="새 비밀번호 (8자 이상, 소문자/숫자/특수문자)" value={newPw} onChange={e => setNewPw(e.target.value)} />
-              <input className="myinfo-input" type="password" placeholder="새 비밀번호 확인" value={confirmPw} onChange={e => setConfirmPw(e.target.value)} />
+              <div style={{ position: 'relative' }}>
+                <input className="myinfo-input" type={showCurrentPw ? 'text' : 'password'} placeholder="현재 비밀번호" value={currentPw} onChange={e => setCurrentPw(e.target.value)} style={{ paddingRight: 36 }} />
+                <button type="button" onClick={() => setShowCurrentPw(v => !v)} style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={showCurrentPw ? '#A51C30' : '#999'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    {showCurrentPw ? (<><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></>) : (<><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></>)}
+                  </svg>
+                </button>
+              </div>
+              <div style={{ position: 'relative' }}>
+                <input className="myinfo-input" type={showNewPw ? 'text' : 'password'} placeholder="새 비밀번호 (8자 이상, 소문자/숫자/특수문자)" value={newPw} onChange={e => setNewPw(e.target.value)} style={{ paddingRight: 36 }} />
+                <button type="button" onClick={() => setShowNewPw(v => !v)} style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={showNewPw ? '#A51C30' : '#999'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    {showNewPw ? (<><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></>) : (<><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></>)}
+                  </svg>
+                </button>
+              </div>
+              <div style={{ position: 'relative' }}>
+                <input className="myinfo-input" type={showConfirmPw ? 'text' : 'password'} placeholder="새 비밀번호 확인" value={confirmPw} onChange={e => setConfirmPw(e.target.value)} style={{ paddingRight: 36 }} />
+                <button type="button" onClick={() => setShowConfirmPw(v => !v)} style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={showConfirmPw ? '#A51C30' : '#999'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    {showConfirmPw ? (<><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></>) : (<><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></>)}
+                  </svg>
+                </button>
+              </div>
               <div className="myinfo-edit-row" style={{ marginTop: 4 }}>
                 <button className="myinfo-save-btn" onClick={async () => {
                   if (!currentPw) { setPwMsg('현재 비밀번호를 입력해주세요'); return }
@@ -356,7 +380,6 @@ export default function MyInfoPage() {
         <div className="myinfo-section myinfo-links">
           <a href="/policy/terms" className="myinfo-link">서비스 이용약관 ›</a>
           <a href="/policy/privacy" className="myinfo-link">개인정보 처리방침 ›</a>
-          <a href="/policy/all" className="myinfo-link">이용약관 및 개인정보 처리방침 ›</a>
         </div>
 
         {/* 문의 */}

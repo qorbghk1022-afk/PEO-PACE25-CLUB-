@@ -23,9 +23,14 @@ export async function POST(req: NextRequest) {
     .select('*').eq('id', requestId).eq('status', 'pending').single()
   if (!request) return NextResponse.json({ error: '신청을 찾을 수 없습니다' }, { status: 404 })
 
-  // 크루장 권한 확인
+  // 크루장 또는 어드민 권한 확인
+  const ADMIN_EMAILS = ['a5214275@naver.com']
   const { data: crew } = await admin.from('crews').select('id, leader_user_id').eq('id', request.crew_id).single()
-  if (!crew || crew.leader_user_id !== userId) {
+  if (!crew) return NextResponse.json({ error: '크루를 찾을 수 없습니다' }, { status: 404 })
+
+  const { data: { user: authUser } } = await admin.auth.admin.getUserById(userId)
+  const isAdmin = authUser && ADMIN_EMAILS.includes(authUser.email || '')
+  if (crew.leader_user_id !== userId && !isAdmin) {
     return NextResponse.json({ error: '권한이 없습니다' }, { status: 403 })
   }
 

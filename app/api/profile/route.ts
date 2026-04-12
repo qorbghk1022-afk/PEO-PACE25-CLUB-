@@ -1,16 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import crypto from 'crypto'
 import { verifySession } from '@/lib/auth'
-
-function encrypt(text: string): string {
-  const key = Buffer.from(process.env.ENCRYPTION_KEY!, 'hex')
-  const iv = crypto.randomBytes(16)
-  const cipher = crypto.createCipheriv('aes-256-gcm', key, iv)
-  const enc = Buffer.concat([cipher.update(text, 'utf8'), cipher.final()])
-  const tag = cipher.getAuthTag()
-  return Buffer.concat([iv, tag, enc]).toString('base64')
-}
 
 export async function POST(req: NextRequest) {
   const { userId: sessionUserId, error: authError } = await verifySession(req)
@@ -33,8 +23,8 @@ export async function POST(req: NextRequest) {
   const { error } = await admin.from('member_profiles').upsert({
     user_id: userId,
     real_name: realName || null,
-    phone_enc: phone ? encrypt(phone) : null,
-    address_enc: address ? encrypt(address) : null,
+    phone: phone || null,
+    address: address || null,
     privacy_agreed_at: privacyAgreed ? new Date().toISOString() : null,
     strava_agreed_at: stravaAgreed ? new Date().toISOString() : null,
     updated_at: new Date().toISOString(),

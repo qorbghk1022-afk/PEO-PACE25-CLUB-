@@ -377,7 +377,7 @@ export default function ChallengeBoard({
                       <td className="rank-pos">{i + 1}</td>
                       <td className="rank-runner cb-clickable" onClick={() => { const mem = members.find(x => x.nickname === m.nickname); if (mem) setSelectedProfile(mem) }}>{m.nickname === leaderNickname ? <span className="leader-name">{'>'} {m.nickname} {'<'}</span> : m.nickname}</td>
                       <td>{m.dist.toFixed(1)}</td>
-                      <td>{m.fine > 0 ? m.fine.toLocaleString() : '-'}</td>
+                      <td>{m.fine > 0 ? `₩${m.fine.toLocaleString()}` : '-'}</td>
                       <td className="cb-session">
                         <div className="session-dots">
                           {m.sessions.map((s, si) => (
@@ -444,7 +444,7 @@ export default function ChallengeBoard({
                   <td className="rank-runner cb-clickable" onClick={() => { const mem = members.find(x => x.nickname === m.nickname); if (mem) setSelectedProfile(mem) }}>{m.nickname === leaderNickname ? <span className="leader-name">{'>'} {m.nickname} {'<'}</span> : m.nickname}</td>
                   <td>{m.dist.toFixed(1)}</td>
                   <td>{m.remain.toFixed(1)}</td>
-                  <td>{m.fine.toLocaleString()}</td>
+                  <td>{m.fine > 0 ? `₩${m.fine.toLocaleString()}` : '0'}</td>
                   <td className="cb-ticket">{m.reason ? <span className="cb-reason">{m.reason}</span> : m.ticket ? <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#A51C30" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 9a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v1a2 2 0 0 0 0 4v1a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-1a2 2 0 0 0 0-4V9z"/><path d="M9 7v10"/></svg> : '-'}</td>
                 </tr>
               ))

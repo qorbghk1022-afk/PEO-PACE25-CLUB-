@@ -223,7 +223,10 @@ export default function AdminDashboard() {
 
   // Payment handlers
   async function handlePaymentConfirm(paymentId: string) {
-    await supabase.from('payments').update({ status: 'paid', paid_at: new Date().toISOString() }).eq('id', paymentId)
+    await fetchWithAuth('/api/admin', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'update_payment', payment_id: paymentId, status: 'paid' })
+    })
     setPayments(prev => prev.map(p => p.id === paymentId ? { ...p, status: 'paid' } : p))
   }
 
@@ -233,8 +236,11 @@ export default function AdminDashboard() {
     const rows = activeMembers.map(m => ({
       member_nickname: m.nickname, type: '회비', amount: 5000, status: 'unpaid', month: payMonth
     }))
-    const { error } = await supabase.from('payments').insert(rows)
-    if (error) { alert('오류: ' + error.message); return }
+    const res = await fetchWithAuth('/api/admin', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'create_fines', fines: rows })
+    })
+    if (!res.ok) { alert('오류: ' + (await res.json()).error); return }
     alert(`${activeMembers.length}명 회비 생성 완료`)
     loadData()
   }
@@ -268,7 +274,11 @@ export default function AdminDashboard() {
       }
     }
     if (fineRows.length === 0) { alert('벌금 대상이 없습니다'); return }
-    await supabase.from('payments').insert(fineRows)
+    const res = await fetchWithAuth('/api/admin', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'create_fines', fines: fineRows })
+    })
+    if (!res.ok) { alert('벌금 생성 실패: ' + (await res.json()).error); return }
     alert(`벌금 ${fineRows.length}건 생성 완료`)
     loadData()
   }

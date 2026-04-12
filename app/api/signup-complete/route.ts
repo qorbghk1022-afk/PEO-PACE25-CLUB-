@@ -1,21 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import crypto from 'crypto'
 import { verifySession } from '@/lib/auth'
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
-
-function encrypt(text: string): string {
-  const KEY = Buffer.from(process.env.ENCRYPTION_KEY!, 'hex')
-  const iv = crypto.randomBytes(12)
-  const cipher = crypto.createCipheriv('aes-256-gcm', KEY, iv)
-  const encrypted = Buffer.concat([cipher.update(text, 'utf8'), cipher.final()])
-  const tag = cipher.getAuthTag()
-  return Buffer.concat([iv, tag, encrypted]).toString('base64')
-}
 
 export async function POST(req: NextRequest) {
   try {
@@ -51,16 +41,14 @@ export async function POST(req: NextRequest) {
       if (insertErr) return NextResponse.json({ error: insertErr.message }, { status: 500 })
     }
 
-    // 개인정보 암호화 저장
+    // 개인정보 저장 (평문)
     if (realName || phone || address) {
-      const encPhone = phone ? encrypt(phone) : null
-      const encAddress = address ? encrypt(address) : null
       const now = new Date().toISOString()
       await supabaseAdmin.from('member_profiles').upsert({
         user_id: userId,
         real_name: realName || null,
-        phone_enc: encPhone,
-        address_enc: encAddress,
+        phone: phone || null,
+        address: address || null,
         privacy_agreed_at: privacyAgreed ? now : null,
         strava_agreed_at: stravaAgreed ? now : null,
       }, { onConflict: 'user_id' })
