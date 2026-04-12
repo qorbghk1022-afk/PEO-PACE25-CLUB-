@@ -1,110 +1,77 @@
 'use client'
+
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { supabase } from '@/lib/supabase/client'
 
 export default function ForgotPasswordPage() {
   const router = useRouter()
   const [email, setEmail] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [sent, setSent] = useState(false)
+  const [tempPw, setTempPw] = useState('')
   const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
 
   async function handleReset() {
-    if (!email.trim()) {
-      setError('이메일을 입력해주세요')
-      return
-    }
-
-    setLoading(true)
-    setError('')
-
-    const { error: resetErr } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-      redirectTo: 'https://www.pace25.com/reset-password',
+    if (!email.trim()) { setError('이메일을 입력해주세요'); return }
+    setLoading(true); setError('')
+    const res = await fetch('/api/reset-password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: email.trim() })
     })
-
-    if (resetErr) {
-      setError('이메일 발송에 실패했습니다. 올바른 이메일인지 확인해주세요.')
+    const data = await res.json()
+    if (res.ok) {
+      setTempPw(data.tempPassword)
     } else {
-      setSent(true)
+      setError(data.error || '오류가 발생했습니다')
     }
-
     setLoading(false)
   }
 
   return (
-    <div className="cs-page">
+    <div style={{ maxWidth: 480, margin: '0 auto', minHeight: '100vh', background: '#fff' }}>
       <header className="cs-header">
         <button className="cs-back" onClick={() => router.push('/login')}>
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#111" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M15 18l-6-6 6-6" />
+            <path d="M19 12H5"/><polyline points="12 19 5 12 12 5"/>
           </svg>
         </button>
-        <img src="/peo-egglog-black.png" alt="PEO" className="cs-header-logo" />
+        <img src="/peo-logo-black.png" alt="PEO" className="cs-header-logo" />
         <div className="cs-header-spacer" />
       </header>
 
-      <div style={{ padding: '40px 24px' }}>
-        <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 8 }}>비밀번호 찾기</h2>
-        <p style={{ fontSize: 14, color: '#888', marginBottom: 32 }}>
-          가입한 이메일을 입력하시면 비밀번호 재설정 링크를 보내드립니다.
-        </p>
+      <div style={{ padding: '32px 24px' }}>
+        <h1 style={{ fontSize: 20, fontWeight: 700, marginBottom: 24 }}>비밀번호 찾기</h1>
 
-        {!sent ? (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        {tempPw ? (
+          <div>
+            <p style={{ fontSize: 14, color: '#333', marginBottom: 16, lineHeight: 1.6 }}>
+              임시 비밀번호가 발급되었습니다.<br/>
+              이 비밀번호로 로그인 후 <strong>내 정보</strong>에서 비밀번호를 변경해주세요.
+            </p>
+            <div style={{ background: '#f5f5f5', borderRadius: 10, padding: 20, textAlign: 'center', marginBottom: 20 }}>
+              <p style={{ fontSize: 12, color: '#999', marginBottom: 8 }}>임시 비밀번호</p>
+              <p style={{ fontSize: 22, fontWeight: 700, color: '#A51C30', letterSpacing: 2 }}>{tempPw}</p>
+            </div>
+            <button className="login-btn-main" onClick={() => router.push('/login')} style={{ width: '100%' }}>
+              로그인하기
+            </button>
+          </div>
+        ) : (
+          <div>
             <input
               className="auth-input"
               type="email"
               placeholder="가입한 이메일"
               value={email}
               onChange={e => setEmail(e.target.value)}
+              style={{ width: '100%', marginBottom: 12 }}
             />
-
-            {error && (
-              <p style={{ fontSize: 14, color: '#e74c3c', textAlign: 'center' }}>
-                {error}
-              </p>
-            )}
-
-            <button
-              className="login-btn-main"
-              onClick={handleReset}
-              disabled={loading}
-              style={{ marginTop: 8 }}
-            >
-              {loading ? '발송 중...' : '비밀번호 재설정 링크 발송'}
+            {error && <p style={{ fontSize: 13, color: '#A51C30', marginBottom: 12 }}>{error}</p>}
+            <button className="login-btn-main" onClick={handleReset} disabled={loading} style={{ width: '100%' }}>
+              {loading ? '발급 중...' : '임시 비밀번호 발급'}
             </button>
           </div>
-        ) : (
-          <div style={{
-            padding: 24,
-            background: '#f8f8f8',
-            borderRadius: 12,
-            textAlign: 'center',
-          }}>
-            <p style={{ fontSize: 32, marginBottom: 12 }}>&#9993;</p>
-            <p style={{ fontSize: 16, fontWeight: 600, marginBottom: 8 }}>
-              이메일을 확인해주세요
-            </p>
-            <p style={{ fontSize: 14, color: '#666', lineHeight: 1.6 }}>
-              입력하신 이메일로 비밀번호 재설정 링크를 발송했습니다.
-              <br />메일함을 확인해주세요.
-            </p>
-          </div>
         )}
-
-        <button
-          className="login-btn-main"
-          onClick={() => router.push('/login')}
-          style={{
-            marginTop: 32,
-            background: '#fff',
-            color: '#111',
-            border: '1px solid #ddd',
-          }}
-        >
-          로그인으로 돌아가기
-        </button>
       </div>
     </div>
   )

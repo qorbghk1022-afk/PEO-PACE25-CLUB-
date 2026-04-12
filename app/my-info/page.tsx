@@ -37,6 +37,12 @@ export default function MyInfoPage() {
   const [editAddress, setEditAddress] = useState('')
   const [profileMsg, setProfileMsg] = useState('')
 
+  // 비밀번호 변경
+  const [showPwForm, setShowPwForm] = useState(false)
+  const [newPw, setNewPw] = useState('')
+  const [confirmPw, setConfirmPw] = useState('')
+  const [pwMsg, setPwMsg] = useState('')
+
   // 사진 업로드
   const [uploading, setUploading] = useState(false)
 
@@ -267,6 +273,35 @@ export default function MyInfoPage() {
               <a href={`/api/strava/auth?userId=${userId}`}>
                 <img src="/btn_strava_connect.png" alt="Connect with Strava" className="strava-connect-btn" />
               </a>
+            </div>
+          )}
+        </div>
+
+        {/* 비밀번호 변경 */}
+        <div className="myinfo-section">
+          <div className="myinfo-section-title">비밀번호</div>
+          {showPwForm ? (
+            <div className="myinfo-leave-form">
+              <input className="myinfo-input" type="password" placeholder="새 비밀번호 (8자 이상, 소문자/숫자/특수문자)" value={newPw} onChange={e => setNewPw(e.target.value)} />
+              <input className="myinfo-input" type="password" placeholder="비밀번호 확인" value={confirmPw} onChange={e => setConfirmPw(e.target.value)} />
+              <div className="myinfo-edit-row" style={{ marginTop: 4 }}>
+                <button className="myinfo-save-btn" onClick={async () => {
+                  if (newPw.length < 8) { setPwMsg('8자 이상 입력해주세요'); return }
+                  if (!/[a-z]/.test(newPw) || !/[0-9]/.test(newPw) || !/[!@#$%^&*]/.test(newPw)) { setPwMsg('소문자, 숫자, 특수문자를 포함해주세요'); return }
+                  if (newPw !== confirmPw) { setPwMsg('비밀번호가 일치하지 않습니다'); return }
+                  const { error } = await supabase.auth.updateUser({ password: newPw })
+                  if (error) { setPwMsg('변경 실패: ' + error.message); return }
+                  setPwMsg('비밀번호가 변경되었습니다')
+                  setShowPwForm(false); setNewPw(''); setConfirmPw('')
+                }}>변경</button>
+                <button className="myinfo-cancel-btn" onClick={() => { setShowPwForm(false); setPwMsg('') }}>취소</button>
+              </div>
+              {pwMsg && <p className="myinfo-msg">{pwMsg}</p>}
+            </div>
+          ) : (
+            <div className="myinfo-row">
+              <span>비밀번호 변경</span>
+              <button className="myinfo-edit-btn" onClick={() => setShowPwForm(true)}>변경</button>
             </div>
           )}
         </div>
