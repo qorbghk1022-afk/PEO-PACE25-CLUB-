@@ -16,7 +16,48 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: '관리자 권한이 없습니다' }, { status: 403 })
   }
 
-  const { action, crew_id } = await req.json()
+  const { action, crew_id, challenge_dates, session_dates } = await req.json()
+
+  if (action === 'sync_tickets') {
+    // 모든 멤버의 추첨권을 활동 데이터 기반으로 재계산
+    if (!crew_id || !challenge_dates || !session_dates) {
+      return NextResponse.json({ error: 'crew_id, challenge_dates, session_dates 필요' }, { status: 400 })
+    }
+
+    const { data: mems } = await admin.from('members').select('nickname').eq('crew_id', crew_id)
+    if (!mems) return NextResponse.json({ error: '멤버 조회 실패' }, { status: 500 })
+
+    const results: { nickname: string; tickets: number }[] = []
+
+    for (const m of mems) {
+      let tickets = 0
+
+      // 챌린지 완주 체크 (각 1장)
+      for (const ch of challenge_dates) {
+        if (new Date(ch.start) > new Date()) continue
+        const { data: acts } = await admin.from('activities').select('distance_km')
+          .eq('member_nickname', m.nickname).gte('date', ch.start).lte('date', ch.end)
+        const total = (acts || []).reduce((s: number, a: { distance_km: number }) => s + Number(a.distance_km), 0)
+        if (total >= 15) tickets++
+      }
+
+      // 정기세션 체크 (각 2장)
+      for (const sd of session_dates) {
+        if (new Date(sd) > new Date()) continue
+        const { data: acts } = await admin.from('activities').select('distance_km')
+          .eq('member_nickname', m.nickname).eq('date', sd)
+        const total = (acts || []).reduce((s: number, a: { distance_km: number }) => s + Number(a.distance_km), 0)
+        if (total >= 15) tickets += 2
+      }
+
+      results.push({ nickname: m.nickname, tickets })
+
+      // DB 업데이트
+      await admin.from('members').update({ lottery_tickets: tickets }).eq('nickname', m.nickname)
+    }
+
+    return NextResponse.json({ ok: true, results })
+  }
 
   if (action === 'delete_crew') {
     if (!crew_id) return NextResponse.json({ error: 'crew_id 필요' }, { status: 400 })

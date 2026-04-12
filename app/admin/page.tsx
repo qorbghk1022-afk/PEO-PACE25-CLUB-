@@ -137,6 +137,9 @@ export default function AdminDashboard() {
 
   useEffect(() => { if (authorized && selectedCrewId) loadData() }, [authorized, selectedCrewId, loadData])
 
+  // 추첨 탭 진입 시 자동 동기화
+  useEffect(() => { if (tab === 'draw' && members.length > 0) syncTickets() }, [tab])
+
   // ---- Handlers ----
 
   async function handleKick(nickname: string) {
@@ -318,6 +321,33 @@ export default function AdminDashboard() {
     await supabase.from('challenge_teams').insert(rows)
     alert(`${Math.ceil(shuffled.length / teamSize)}개 팀으로 재구성 완료`)
     loadData()
+  }
+
+  // 추첨권 동기화 (활동 기반 실시간 계산 → DB 반영)
+  async function syncTickets() {
+    const challengeDates = [
+      { start: '2026-01-26', end: '2026-02-08' },
+      { start: '2026-02-09', end: '2026-02-22' },
+      { start: '2026-02-23', end: '2026-03-08' },
+      { start: '2026-03-09', end: '2026-03-22' },
+      { start: '2026-03-23', end: '2026-04-05' },
+      { start: '2026-04-06', end: '2026-04-19' },
+    ]
+    const sessionDates = ['2026-02-21', '2026-03-21', '2026-04-18']
+
+    const res = await fetchWithAuth('/api/admin', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'sync_tickets', crew_id: selectedCrewId, challenge_dates: challengeDates, session_dates: sessionDates })
+    })
+    if (res.ok) {
+      const { results } = await res.json()
+      if (results) {
+        setMembers(prev => prev.map(m => {
+          const r = results.find((x: { nickname: string; tickets: number }) => x.nickname === m.nickname)
+          return r ? { ...m, lottery_tickets: r.tickets } : m
+        }))
+      }
+    }
   }
 
   // Draw handlers
@@ -781,7 +811,13 @@ export default function AdminDashboard() {
               <div style={{ fontSize: 12, color: '#666' }}>추첨권 보유 현황</div>
             </div>
 
-            <div className="admin-section-label">추첨권 현황</div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div className="admin-section-label" style={{ margin: 0 }}>추첨권 현황</div>
+              <button style={{ padding: '4px 12px', borderRadius: 6, border: '1px solid #A51C30', background: 'none', color: '#A51C30', fontSize: 11, cursor: 'pointer' }}
+                onClick={async () => { await syncTickets(); alert('추첨권 동기화 완료') }}>
+                동기화
+              </button>
+            </div>
             {members.filter(m => m.lottery_tickets > 0).sort((a, b) => b.lottery_tickets - a.lottery_tickets).length === 0 && (
               <p className="admin-empty-sm">추첨권 보유자가 없습니다</p>
             )}

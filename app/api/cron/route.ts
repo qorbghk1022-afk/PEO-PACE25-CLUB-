@@ -63,7 +63,10 @@ export async function GET(request: Request) {
     // ─── Step 4: Cleanup stale Strava raw data (7-day cache) ───
     const cleanupResult = await cleanupStravaCache(db, log)
 
-    // ─── Step 5: Log ───
+    // ─── Step 5: Sync lottery tickets ───
+    const ticketResult = await syncLotteryTickets(db, log)
+
+    // ─── Step 6: Log ───
     await db.from('sync_logs').insert({
       activity_count: sheetResult.count,
       status: 'success',
@@ -76,6 +79,7 @@ export async function GET(request: Request) {
       strava: stravaResult,
       challenge: challengeResult,
       cleanup: cleanupResult,
+      tickets: ticketResult,
       log,
     })
   } catch (error) {
@@ -414,12 +418,12 @@ async function calcPeriodScores(
       }
     }
     const s = stats[nick]
-    s.dist += a.distance_km
-    s.longest = Math.max(s.longest, a.distance_km)
-    if (a.avg_pace_sec > 0) s.paceSecs.push(a.avg_pace_sec)
+    s.dist += Number(a.distance_km)
+    s.longest = Math.max(s.longest, Number(a.distance_km))
+    if (Number(a.avg_pace_sec) > 0) s.paceSecs.push(Number(a.avg_pace_sec))
     s.days.add(a.date)
-    s.moving += a.moving_time_sec || 0
-    s.elapsed += a.elapsed_time_sec || a.moving_time_sec || 0
+    s.moving += Number(a.moving_time_sec) || 0
+    s.elapsed += Number(a.elapsed_time_sec) || Number(a.moving_time_sec) || 0
   }
 
   const results = Object.entries(stats).map(([nickname, s]) => {
@@ -625,6 +629,55 @@ async function cleanupStravaCache(
     log.push(`Cleanup error: ${msg}`)
     return { deleted: 0 }
   }
+}
+
+// ═══════════════════════════════════════════════════════════
+// Sync lottery tickets: recalculate from activities → update DB
+// ═══════════════════════════════════════════════════════════
+async function syncLotteryTickets(
+  db: ReturnType<typeof createServiceClient>,
+  log: string[],
+) {
+  const challengeDates = [
+    { start: '2026-01-26', end: '2026-02-08' },
+    { start: '2026-02-09', end: '2026-02-22' },
+    { start: '2026-02-23', end: '2026-03-08' },
+    { start: '2026-03-09', end: '2026-03-22' },
+    { start: '2026-03-23', end: '2026-04-05' },
+    { start: '2026-04-06', end: '2026-04-19' },
+  ]
+  const sessionDates = ['2026-02-21', '2026-03-21', '2026-04-18']
+  const now = new Date()
+
+  const { data: mems } = await db.from('members').select('nickname').eq('crew_id', HRC_CREW_ID)
+  if (!mems || mems.length === 0) { log.push('Tickets: no members'); return { updated: 0 } }
+
+  let updated = 0
+  for (const m of mems) {
+    let tickets = 0
+
+    for (const ch of challengeDates) {
+      if (new Date(ch.start) > now) continue
+      const { data: acts } = await db.from('activities').select('distance_km')
+        .eq('member_nickname', m.nickname).gte('date', ch.start).lte('date', ch.end)
+      const total = (acts || []).reduce((s: number, a: { distance_km: number }) => s + Number(a.distance_km), 0)
+      if (total >= 15) tickets++
+    }
+
+    for (const sd of sessionDates) {
+      if (new Date(sd) > now) continue
+      const { data: acts } = await db.from('activities').select('distance_km')
+        .eq('member_nickname', m.nickname).eq('date', sd)
+      const total = (acts || []).reduce((s: number, a: { distance_km: number }) => s + Number(a.distance_km), 0)
+      if (total >= 15) tickets += 2
+    }
+
+    await db.from('members').update({ lottery_tickets: tickets }).eq('nickname', m.nickname)
+    updated++
+  }
+
+  log.push(`Tickets: ${updated} members synced`)
+  return { updated }
 }
 
 // ═══════════════════════════════════════════════════════════
