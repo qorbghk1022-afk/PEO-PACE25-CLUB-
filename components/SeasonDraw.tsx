@@ -73,7 +73,7 @@ export default function SeasonDraw({ member, members }: { member: Member | null;
       if (new Date(ch.start) > now) { clears.push(false); continue }
       const { data } = await supabase.from('activities').select('distance_km')
         .eq('member_nickname', member.nickname).gte('date', ch.start).lte('date', ch.end)
-      const total = (data || []).reduce((s, a) => s + a.distance_km, 0)
+      const total = (data || []).reduce((s, a) => s + Number(a.distance_km), 0)
       clears.push(total >= 15)
     }
     setChallengeClears(clears)
@@ -83,7 +83,7 @@ export default function SeasonDraw({ member, members }: { member: Member | null;
       if (new Date(s.date) > now) { sessions.push(null); continue }
       const { data } = await supabase.from('activities').select('distance_km')
         .eq('member_nickname', member.nickname).eq('date', s.date)
-      const total = (data || []).reduce((s, a) => s + a.distance_km, 0)
+      const total = (data || []).reduce((s, a) => s + Number(a.distance_km), 0)
       sessions.push(total >= 15)
     }
     setSessionClears(sessions)

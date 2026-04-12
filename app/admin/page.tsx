@@ -133,7 +133,7 @@ export default function AdminDashboard() {
     setSeasons((seasonsData || []) as SeasonRow[])
     setDrawResults((draws || []) as DrawResult[])
     setLoading(false)
-  }, [])
+  }, [selectedCrewId])
 
   useEffect(() => { if (authorized && selectedCrewId) loadData() }, [authorized, selectedCrewId, loadData])
 
@@ -247,17 +247,17 @@ export default function AdminDashboard() {
       const teamMembers = teams.filter(t => t.team_num === tn)
       const onLeave = members.filter(m => m.leave_start && m.leave_end && m.leave_end >= currentChallenge.start_date)
       const activeTeam = teamMembers.filter(t => !onLeave.find(l => l.nickname === t.member_nickname))
-      const goalTotal = currentChallenge.goal_km * activeTeam.length
+      const goalTotal = Number(currentChallenge.goal_km) * activeTeam.length
       let teamDist = 0
       for (const tm of activeTeam) {
         const { data } = await supabase.from('activities').select('distance_km')
           .eq('member_nickname', tm.member_nickname)
           .gte('date', currentChallenge.start_date).lte('date', currentChallenge.end_date)
-        teamDist += (data || []).reduce((s, a) => s + (a.distance_km || 0), 0)
+        teamDist += (data || []).reduce((s, a) => s + Number(a.distance_km || 0), 0)
       }
       const shortfall = Math.max(0, Math.ceil(goalTotal - teamDist))
       if (shortfall > 0) {
-        const fineTotal = shortfall * currentChallenge.fine_per_km
+        const fineTotal = shortfall * Number(currentChallenge.fine_per_km)
         const perPerson = Math.round(fineTotal / activeTeam.length)
         activeTeam.forEach(tm => {
           fineRows.push({ member_nickname: tm.member_nickname, type: '벌금', amount: perPerson, status: 'unpaid', season_id: currentChallenge.season_id })
@@ -437,14 +437,11 @@ export default function AdminDashboard() {
             if (!crew) return
             if (!confirm(`"${crew.name}" 크루를 삭제할까요? (${crew.member_count}명)`)) return
             if (!confirm('정말 삭제하시겠습니까? 되돌릴 수 없습니다.')) return
-            await supabase.from('crew_members').delete().eq('crew_id', selectedCrewId)
-            await supabase.from('members').update({ crew_id: null }).eq('crew_id', selectedCrewId)
-            const { data: chs } = await supabase.from('challenges').select('id').eq('crew_id', selectedCrewId)
-            if (chs) await supabase.from('challenge_teams').delete().in('challenge_id', chs.map(c => c.id))
-            await supabase.from('challenges').delete().eq('crew_id', selectedCrewId)
-            await supabase.from('seasons').delete().eq('crew_id', selectedCrewId)
-            await supabase.from('crew_join_requests').delete().eq('crew_id', selectedCrewId)
-            await supabase.from('crews').delete().eq('id', selectedCrewId)
+            const res = await fetchWithAuth('/api/admin', {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ action: 'delete_crew', crew_id: selectedCrewId })
+            })
+            if (!res.ok) { alert('삭제 실패: ' + (await res.json()).error); return }
             setCrews(prev => prev.filter(c => c.id !== selectedCrewId))
             if (crews.length > 1) setSelectedCrewId(crews.find(c => c.id !== selectedCrewId)?.id || '')
             alert('크루가 삭제되었습니다.')

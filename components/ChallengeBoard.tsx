@@ -99,7 +99,7 @@ export default function ChallengeBoard({
 
     const distMap: Record<string, number> = {}
     ;(acts || []).forEach(a => {
-      distMap[a.member_nickname] = (distMap[a.member_nickname] || 0) + a.distance_km
+      distMap[a.member_nickname] = (distMap[a.member_nickname] || 0) + Number(a.distance_km)
     })
 
     // 각 챌린지별 팀 벌금 계산
@@ -110,12 +110,12 @@ export default function ChallengeBoard({
       const { data: chActs } = await supabase.from('activities').select('member_nickname, distance_km').gte('date', ch.start_date).lte('date', ch.end_date)
 
       const chDist: Record<string, number> = {}
-      ;(chActs || []).forEach(a => { chDist[a.member_nickname] = (chDist[a.member_nickname] || 0) + a.distance_km })
+      ;(chActs || []).forEach(a => { chDist[a.member_nickname] = (chDist[a.member_nickname] || 0) + Number(a.distance_km) })
 
       // 개인 완주 체크
       ;(teams || []).forEach(t => {
         if (!clearMap[t.member_nickname]) clearMap[t.member_nickname] = 0
-        if ((chDist[t.member_nickname] || 0) >= ch.goal_km) clearMap[t.member_nickname]++
+        if ((chDist[t.member_nickname] || 0) >= Number(ch.goal_km)) clearMap[t.member_nickname]++
       })
 
       // 팀별 벌금
@@ -124,10 +124,10 @@ export default function ChallengeBoard({
         const tmems = (teams || []).filter(t => t.team_num === tn).map(t => t.member_nickname)
           .filter(n => !isOnLeave(memberMap[n], ch.start_date, ch.end_date))
         if (tmems.length === 0) continue
-        const teamGoal = tmems.length * ch.goal_km
+        const teamGoal = tmems.length * Number(ch.goal_km)
         const teamDist = tmems.reduce((s, n) => s + (chDist[n] || 0), 0)
         const shortfall = Math.max(0, teamGoal - teamDist)
-        const perFine = Math.round((shortfall / tmems.length) * ch.fine_per_km)
+        const perFine = Math.round((shortfall / tmems.length) * Number(ch.fine_per_km))
         tmems.forEach(n => { fineMap[n] = (fineMap[n] || 0) + perFine })
       }
     }
@@ -145,7 +145,7 @@ export default function ChallengeBoard({
         if (si === 0 && feb21Manual.includes(nick)) { sessions.push(true); continue }
         // DB에서 확인
         const dayActs = (acts || []).filter(a => a.member_nickname === nick && a.date === sd)
-        const dayTotal = dayActs.reduce((s, a) => s + a.distance_km, 0)
+        const dayTotal = dayActs.reduce((s, a) => s + Number(a.distance_km), 0)
         sessions.push(dayTotal >= 15)
       }
       sessionMap[nick] = sessions
@@ -169,7 +169,7 @@ export default function ChallengeBoard({
     // 전체 데이터
     const { data: allActs } = await supabase.from('activities').select('member_nickname, distance_km')
     const allDist: Record<string, number> = {}
-    ;(allActs || []).forEach(a => { allDist[a.member_nickname] = (allDist[a.member_nickname] || 0) + a.distance_km })
+    ;(allActs || []).forEach(a => { allDist[a.member_nickname] = (allDist[a.member_nickname] || 0) + Number(a.distance_km) })
 
     // 최근 시즌 스탯에서 점수 가져오기
     const { data: latestStats } = await supabase.from('member_season_stats').select('member_nickname, total_score').order('total_score', { ascending: false })
@@ -208,7 +208,7 @@ export default function ChallengeBoard({
 
     const distMap: Record<string, number> = {}
     ;(activities || []).forEach((a: { member_nickname: string; distance_km: number }) => {
-      distMap[a.member_nickname] = (distMap[a.member_nickname] || 0) + a.distance_km
+      distMap[a.member_nickname] = (distMap[a.member_nickname] || 0) + Number(a.distance_km)
     })
 
     const memberMap: Record<string, Member> = {}
@@ -231,12 +231,12 @@ export default function ChallengeBoard({
       const activeMembers = teamMembers.filter(n => !isOnLeave(memberMap[n], challenge.start_date, challenge.end_date))
       const restMembers = teamMembers.filter(n => !!isOnLeave(memberMap[n], challenge.start_date, challenge.end_date))
 
-      const goalKm = activeMembers.length * challenge.goal_km
+      const goalKm = activeMembers.length * Number(challenge.goal_km)
       const totalDist = activeMembers.reduce((s: number, n: string) => s + (distMap[n] || 0), 0)
       const teamShortfall = Math.max(0, goalKm - totalDist)
       const activeCnt = activeMembers.length || 1
       const perMemberRemain = teamShortfall / activeCnt
-      const perMemberFine = Math.round(perMemberRemain * challenge.fine_per_km)
+      const perMemberFine = Math.round(perMemberRemain * Number(challenge.fine_per_km))
 
       const mems = activeMembers.map(nickname => {
         const dist = distMap[nickname] || 0
@@ -244,11 +244,11 @@ export default function ChallengeBoard({
           nickname, lv: memberMap[nickname]?.lv || 0, dist,
           remain: teamShortfall > 0 ? perMemberRemain : 0,
           fine: teamShortfall > 0 ? perMemberFine : 0,
-          ticket: dist >= challenge.goal_km, reason: null as string | null,
+          ticket: dist >= Number(challenge.goal_km), reason: null as string | null,
         }
       })
 
-      return { team_num: num, members: mems, totalDist, goalKm, shortfall: teamShortfall, fine: Math.round(teamShortfall * challenge.fine_per_km) }
+      return { team_num: num, members: mems, totalDist, goalKm, shortfall: teamShortfall, fine: Math.round(teamShortfall * Number(challenge.fine_per_km)) }
     })
 
     // 휴식 멤버를 별도 팀(-) 으로 추가

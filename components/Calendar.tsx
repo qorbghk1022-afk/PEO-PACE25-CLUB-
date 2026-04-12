@@ -89,9 +89,9 @@ export default function Calendar({
       .lte('date', fmtDate(range.end))
       .then(({ data }) => {
         const acts = data || []
-        const distance = acts.reduce((s, a) => s + a.distance_km, 0)
-        const longest = acts.length > 0 ? Math.max(...acts.map(a => a.distance_km)) : 0
-        const avgPace = acts.length > 0 ? acts.reduce((s, a) => s + a.avg_pace_sec, 0) / acts.length : 0
+        const distance = acts.reduce((s, a) => s + Number(a.distance_km), 0)
+        const longest = acts.length > 0 ? Math.max(...acts.map(a => Number(a.distance_km))) : 0
+        const avgPace = acts.length > 0 ? acts.reduce((s, a) => s + Number(a.avg_pace_sec), 0) / acts.length : 0
         const uniqueDays = new Set(acts.map((a: { date: string }) => a.date)).size
         setPeriodStats({ distance, longest, avgPace, days: uniqueDays })
       })
@@ -128,7 +128,7 @@ export default function Calendar({
     actMap[d].push(a)
   })
 
-  const totalDist = activities.reduce((s, a) => s + a.distance_km, 0)
+  const totalDist = activities.reduce((s, a) => s + Number(a.distance_km), 0)
   const runDays = Object.keys(actMap).length
 
   function handlePrev() {
