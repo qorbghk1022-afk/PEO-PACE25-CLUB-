@@ -39,6 +39,7 @@ export default function MyInfoPage() {
 
   // 비밀번호 변경
   const [showPwForm, setShowPwForm] = useState(false)
+  const [currentPw, setCurrentPw] = useState('')
   const [newPw, setNewPw] = useState('')
   const [confirmPw, setConfirmPw] = useState('')
   const [pwMsg, setPwMsg] = useState('')
@@ -282,19 +283,27 @@ export default function MyInfoPage() {
           <div className="myinfo-section-title">비밀번호</div>
           {showPwForm ? (
             <div className="myinfo-leave-form">
+              <input className="myinfo-input" type="password" placeholder="현재 비밀번호" value={currentPw} onChange={e => setCurrentPw(e.target.value)} />
               <input className="myinfo-input" type="password" placeholder="새 비밀번호 (8자 이상, 소문자/숫자/특수문자)" value={newPw} onChange={e => setNewPw(e.target.value)} />
-              <input className="myinfo-input" type="password" placeholder="비밀번호 확인" value={confirmPw} onChange={e => setConfirmPw(e.target.value)} />
+              <input className="myinfo-input" type="password" placeholder="새 비밀번호 확인" value={confirmPw} onChange={e => setConfirmPw(e.target.value)} />
               <div className="myinfo-edit-row" style={{ marginTop: 4 }}>
                 <button className="myinfo-save-btn" onClick={async () => {
+                  if (!currentPw) { setPwMsg('현재 비밀번호를 입력해주세요'); return }
+                  // 현재 비밀번호 확인
+                  const { data: { session } } = await supabase.auth.getSession()
+                  const email = session?.user?.email
+                  if (!email) { setPwMsg('세션 오류'); return }
+                  const { error: loginErr } = await supabase.auth.signInWithPassword({ email, password: currentPw })
+                  if (loginErr) { setPwMsg('현재 비밀번호가 틀렸습니다'); return }
                   if (newPw.length < 8) { setPwMsg('8자 이상 입력해주세요'); return }
                   if (!/[a-z]/.test(newPw) || !/[0-9]/.test(newPw) || !/[!@#$%^&*]/.test(newPw)) { setPwMsg('소문자, 숫자, 특수문자를 포함해주세요'); return }
                   if (newPw !== confirmPw) { setPwMsg('비밀번호가 일치하지 않습니다'); return }
                   const { error } = await supabase.auth.updateUser({ password: newPw })
                   if (error) { setPwMsg('변경 실패: ' + error.message); return }
                   setPwMsg('비밀번호가 변경되었습니다')
-                  setShowPwForm(false); setNewPw(''); setConfirmPw('')
+                  setShowPwForm(false); setCurrentPw(''); setNewPw(''); setConfirmPw('')
                 }}>변경</button>
-                <button className="myinfo-cancel-btn" onClick={() => { setShowPwForm(false); setPwMsg('') }}>취소</button>
+                <button className="myinfo-cancel-btn" onClick={() => { setShowPwForm(false); setPwMsg(''); setCurrentPw('') }}>취소</button>
               </div>
               {pwMsg && <p className="myinfo-msg">{pwMsg}</p>}
             </div>

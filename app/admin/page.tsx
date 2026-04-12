@@ -5,9 +5,9 @@ import { supabase } from '@/lib/supabase/client'
 import { fetchWithAuth } from '@/lib/fetchWithAuth'
 
 const ADMIN_EMAILS = ['a5214275@naver.com']
-const HRC_CREW_ID = '2891fdd5-545b-4144-81f6-229df8dd5457'
 
 type TabKey = 'members' | 'leaves' | 'payments' | 'requests' | 'challenges' | 'draw'
+interface CrewOption { id: string; name: string; member_count: number }
 
 interface MemberInfo {
   id: string; nickname: string; realname: string | null; lv: number; total_dist: number;
@@ -28,6 +28,8 @@ export default function AdminDashboard() {
   const [authorized, setAuthorized] = useState(false)
   const [loading, setLoading] = useState(true)
   const [tab, setTab] = useState<TabKey>('members')
+  const [crews, setCrews] = useState<CrewOption[]>([])
+  const [selectedCrewId, setSelectedCrewId] = useState<string>('')
 
   // Data states
   const [members, setMembers] = useState<MemberInfo[]>([])
@@ -68,12 +70,20 @@ export default function AdminDashboard() {
   const [detailModal, setDetailModal] = useState<MemberInfo | null>(null)
   const [memberActivities, setMemberActivities] = useState<{ date: string; distance_km: number; avg_pace_sec: number }[]>([])
 
-  // Auth check
+  // Auth check + load crews
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (!session) { window.location.href = '/login'; return }
       if (!ADMIN_EMAILS.includes(session.user.email || '')) { window.location.href = '/'; return }
       setAuthorized(true)
+      // 크루 목록
+      const { data: crewList } = await supabase.from('crews').select('id, name')
+      const crewsWithCount = await Promise.all((crewList || []).map(async c => {
+        const { count } = await supabase.from('crew_members').select('id', { count: 'exact', head: true }).eq('crew_id', c.id)
+        return { ...c, member_count: count || 0 }
+      }))
+      setCrews(crewsWithCount)
+      if (crewsWithCount.length > 0) setSelectedCrewId(crewsWithCount[0].id)
     })
   }, [])
 
@@ -91,13 +101,13 @@ export default function AdminDashboard() {
       { data: seasonsData },
       { data: draws },
     ] = await Promise.all([
-      supabase.from('members').select('*').order('lv', { ascending: false }),
+      supabase.from('members').select('*').eq('crew_id', selectedCrewId).order('lv', { ascending: false }),
       supabase.from('strava_tokens').select('user_id'),
       supabase.from('challenge_leaves').select('*').order('requested_at', { ascending: false }),
       supabase.from('payments').select('*').order('created_at', { ascending: false }),
-      supabase.from('crew_join_requests').select('*').eq('crew_id', HRC_CREW_ID).eq('status', 'pending').order('created_at', { ascending: false }),
-      supabase.from('crew_join_requests').select('*').eq('crew_id', HRC_CREW_ID).in('status', ['approved', 'rejected']).order('created_at', { ascending: false }).limit(20),
-      supabase.from('challenges').select('*').order('start_date', { ascending: false }),
+      supabase.from('crew_join_requests').select('*').eq('crew_id', selectedCrewId).eq('status', 'pending').order('created_at', { ascending: false }),
+      supabase.from('crew_join_requests').select('*').eq('crew_id', selectedCrewId).in('status', ['approved', 'rejected']).order('created_at', { ascending: false }).limit(20),
+      supabase.from('challenges').select('*').eq('crew_id', selectedCrewId).order('start_date', { ascending: false }),
       supabase.from('challenge_teams').select('*'),
       supabase.from('seasons').select('*').order('start_date', { ascending: false }),
       supabase.from('draw_results').select('*').order('quarter', { ascending: false }).order('rank'),
@@ -120,7 +130,7 @@ export default function AdminDashboard() {
     setLoading(false)
   }, [])
 
-  useEffect(() => { if (authorized) loadData() }, [authorized, loadData])
+  useEffect(() => { if (authorized && selectedCrewId) loadData() }, [authorized, selectedCrewId, loadData])
 
   // ---- Handlers ----
 
@@ -383,7 +393,7 @@ export default function AdminDashboard() {
   const currentDrawResults = drawResults.filter(r => r.quarter === drawQuarter)
   const pastDrawQuarters = [...new Set(drawResults.map(r => r.quarter))].filter(q => q !== drawQuarter)
 
-  const inviteLink = typeof window !== 'undefined' ? `${window.location.origin}/crew/join/${HRC_CREW_ID}` : ''
+  const inviteLink = typeof window !== 'undefined' ? `${window.location.origin}/crew/join/${selectedCrewId}` : ''
 
   if (!authorized || loading) return <div style={{ padding: 40, textAlign: 'center' }}>로딩 중...</div>
 
@@ -401,9 +411,22 @@ export default function AdminDashboard() {
             <path d="M19 12H5"/><polyline points="12 19 5 12 12 5"/>
           </svg>
         </button>
-        <h1 className="admin-title">관리자 대시보드</h1>
+        <h1 className="admin-title">관리자</h1>
         <div style={{ width: 40 }} />
       </header>
+
+      {/* 크루 선택 */}
+      <div style={{ padding: '8px 16px', borderBottom: '1px solid #eee', display: 'flex', gap: 6, overflowX: 'auto' }}>
+        {crews.map(c => (
+          <button key={c.id} onClick={() => setSelectedCrewId(c.id)} style={{
+            padding: '6px 14px', borderRadius: 20, border: 'none', fontSize: 13, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap',
+            background: selectedCrewId === c.id ? '#A51C30' : '#f0f0f0',
+            color: selectedCrewId === c.id ? '#fff' : '#666',
+          }}>
+            {c.name} ({c.member_count})
+          </button>
+        ))}
+      </div>
 
       <div className="admin-summary">
         <div className="admin-summary-item"><span className="admin-summary-num">{totalMembers}</span><span>전체</span></div>
