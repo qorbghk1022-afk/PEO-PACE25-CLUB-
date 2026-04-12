@@ -41,9 +41,12 @@ export async function GET(req: NextRequest) {
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   if (!data) return NextResponse.json({ real_name: '', phone: '', address: '' })
 
+  const phone = data.phone_enc ? decrypt(data.phone_enc) : ''
+  const address = data.address_enc ? decrypt(data.address_enc) : ''
+
   return NextResponse.json({
     real_name: data.real_name || '',
-    phone: data.phone_enc ? decrypt(data.phone_enc) : '',
-    address: data.address_enc ? decrypt(data.address_enc) : '',
+    phone: phone === '***' ? '(복호화 실패 - 다시 입력해주세요)' : phone,
+    address: address === '***' ? '(복호화 실패 - 다시 입력해주세요)' : address,
   })
 }
