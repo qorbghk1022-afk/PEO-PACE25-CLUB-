@@ -1982,6 +1982,19 @@ html, body {
   font-weight: 700;
 }
 
+.remember-me {
+  display: flex; align-items: center; gap: 6px; font-size: 13px; color: #666; margin: 8px 0; cursor: pointer;
+}
+.remember-me input[type="checkbox"] { width: 16px; height: 16px; accent-color: #A51C30; }
+.auth-links {
+  display: flex; justify-content: center; gap: 0; margin-top: 12px;
+}
+.auth-link {
+  background: none; border: none; color: #999; font-size: 13px; cursor: pointer; padding: 4px 8px;
+}
+.auth-link:hover { color: #A51C30; }
+.auth-link-divider { color: #ddd; font-size: 13px; line-height: 28px; }
+
 .ob-page {
   min-height: 100vh; background: #111; max-width: 480px; margin: 0 auto;
 }

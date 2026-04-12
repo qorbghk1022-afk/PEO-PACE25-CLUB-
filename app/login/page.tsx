@@ -50,6 +50,7 @@ export default function LoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showLoginPw, setShowLoginPw] = useState(false)
+  const [rememberMe, setRememberMe] = useState(false)
 
   // 회원가입 폼
   const [nickname, setNickname] = useState('')
@@ -106,10 +107,28 @@ export default function LoginPage() {
     if (!email || !password) { setError('이메일과 비밀번호를 입력해주세요'); return }
     setLoading(true); setError('')
     const { error } = await supabase.auth.signInWithPassword({ email, password })
-    if (error) setError('이메일 또는 비밀번호가 틀렸어요')
-    else router.push('/')
+    if (error) { setError('이메일 또는 비밀번호가 틀렸어요'); setLoading(false); return }
+    if (rememberMe) {
+      localStorage.setItem('peo_remember', JSON.stringify({ email, password: btoa(password) }))
+    } else {
+      localStorage.removeItem('peo_remember')
+    }
+    router.push('/')
     setLoading(false)
   }
+
+  // 자동 로그인 체크
+  useEffect(() => {
+    const saved = localStorage.getItem('peo_remember')
+    if (saved) {
+      try {
+        const { email: e, password: p } = JSON.parse(saved)
+        setEmail(e)
+        setPassword(atob(p))
+        setRememberMe(true)
+      } catch {}
+    }
+  }, [])
 
   async function checkNickname() {
     if (!nickname.trim()) { setNicknameMsg('닉네임을 입력해주세요'); return }
@@ -300,10 +319,19 @@ export default function LoginPage() {
               {showLoginPw ? <EyeOffIcon /> : <EyeIcon />}
             </button>
           </div>
+          <label className="remember-me">
+            <input type="checkbox" checked={rememberMe} onChange={e => setRememberMe(e.target.checked)} />
+            <span>자동 로그인</span>
+          </label>
           {error && <p className="auth-error">{error}</p>}
           <button className="login-btn-main" onClick={handleLogin} disabled={loading}>
             {loading ? '...' : '로그인'}
           </button>
+          <div className="auth-links">
+            <button className="auth-link" onClick={() => router.push('/find-id')}>아이디 찾기</button>
+            <span className="auth-link-divider">|</span>
+            <button className="auth-link" onClick={() => router.push('/forgot-password')}>비밀번호 찾기</button>
+          </div>
         </div>
       </div>
 
