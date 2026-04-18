@@ -18,3 +18,11 @@ npm-debug.log*
 *.tsbuildinfo
 next-env.d.ts
 credentials.json
+
+# OS
+.DS_Store
+
+# Sensitive
+*.env
+token.json
+gcp-saved-tokens.json
