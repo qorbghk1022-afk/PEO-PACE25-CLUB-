@@ -38,6 +38,7 @@ const HRC_CREW_ID = '2891fdd5-545b-4144-81f6-229df8dd5457'
 const NICKNAME_FIXES: Record<string, string> = {
   '원': '진원',
   '키가케인던스': '키가케이던스',
+  '키카케이던스': '키가케이던스',
 }
 
 // REST members excluded from team goal calculation
