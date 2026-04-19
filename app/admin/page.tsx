@@ -16,6 +16,14 @@ interface MemberInfo {
   lottery_tickets: number; remark: string | null; email?: string;
   strava: boolean; total_exp: number;
 }
+interface MemberDetail {
+  nickname: string; crew_name: string | null; strava_connected: boolean;
+  real_name: string | null; phone: string | null; email: string | null;
+  joined_at: string | null; lv: number; total_dist: number; total_days: number;
+  lottery_tickets: number; remark: string | null;
+  leave_start: string | null; leave_end: string | null; leave_reason: string | null;
+  linked: boolean; masked: boolean;
+}
 interface LeaveRow { id: string; member_nickname: string; challenge_id: string; reason: string; reason_detail: string | null; status: string; requested_at: string }
 interface PaymentRow { id: string; member_nickname: string; type: string; amount: number; status: string; month?: string; season_id?: string; created_at: string; paid_at: string | null }
 interface JoinReqRow { id: string; member_nickname: string | null; user_id: string; created_at: string; status: string }
@@ -67,7 +75,8 @@ export default function AdminDashboard() {
   const [manualDist, setManualDist] = useState('')
   const [manualTime, setManualTime] = useState('')
   const [manualPace, setManualPace] = useState('')
-  const [detailModal, setDetailModal] = useState<MemberInfo | null>(null)
+  const [detailModal, setDetailModal] = useState<MemberDetail | null>(null)
+  const [detailLoading, setDetailLoading] = useState(false)
   const [memberActivities, setMemberActivities] = useState<{ date: string; distance_km: number; avg_pace_sec: number }[]>([])
 
   // Auth check + load crews
@@ -189,10 +198,39 @@ export default function AdminDashboard() {
   }
 
   async function loadMemberDetail(m: MemberInfo) {
-    setDetailModal(m)
-    const { data } = await supabase.from('activities').select('date, distance_km, avg_pace_sec')
-      .eq('member_nickname', m.nickname).order('date', { ascending: false }).limit(10)
-    setMemberActivities(data || [])
+    setDetailModal(null)
+    setMemberActivities([])
+    setDetailLoading(true)
+    try {
+      const res = await fetchWithAuth(`/api/admin/member-detail?nickname=${encodeURIComponent(m.nickname)}`)
+      if (!res.ok) { alert('상세 정보 로드 실패: ' + (await res.json()).error); return }
+      setDetailModal(await res.json() as MemberDetail)
+      const { data } = await supabase.from('activities').select('date, distance_km, avg_pace_sec')
+        .eq('member_nickname', m.nickname).order('date', { ascending: false }).limit(10)
+      setMemberActivities(data || [])
+    } finally {
+      setDetailLoading(false)
+    }
+  }
+
+  async function toggleUnmask() {
+    if (!detailModal || !detailModal.linked) return
+    const willUnmask = detailModal.masked
+    if (willUnmask && !confirm('개인정보를 평문으로 표시합니다. 계속할까요?')) return
+    const res = await fetchWithAuth(
+      `/api/admin/member-detail?nickname=${encodeURIComponent(detailModal.nickname)}&unmask=${willUnmask ? 1 : 0}`,
+    )
+    if (!res.ok) { alert('로드 실패'); return }
+    setDetailModal(await res.json() as MemberDetail)
+  }
+
+  function copyMemberInfo() {
+    if (!detailModal) return
+    const text = `${detailModal.nickname}\t${detailModal.real_name || ''}`
+    navigator.clipboard.writeText(text).then(
+      () => alert('복사되었습니다 (닉네임 + 실명)'),
+      () => alert('복사 실패'),
+    )
   }
 
   // Leave handlers
@@ -934,16 +972,61 @@ export default function AdminDashboard() {
       )}
 
       {/* ========== Member Detail Modal ========== */}
+      {detailLoading && !detailModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 14 }}>
+          로딩 중...
+        </div>
+      )}
       {detailModal && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
           onClick={() => setDetailModal(null)}>
-          <div style={{ background: '#fff', borderRadius: 16, padding: 24, width: '90%', maxWidth: 400, maxHeight: '80vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
-            <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 4 }}>{detailModal.nickname}</h3>
-            <div style={{ fontSize: 12, color: '#999', marginBottom: 16 }}>
-              {detailModal.realname || '-'} | {detailModal.user_id ? '가입완료' : '미연동'} | {detailModal.strava ? 'Strava 연결' : 'Strava 미연결'}
+          <div style={{ background: '#fff', borderRadius: 16, padding: 24, width: '90%', maxWidth: 400, maxHeight: '85vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
+
+            {/* 닉네임 = 실명 */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 10 }}>
+              <div style={{ fontSize: 20, fontWeight: 700, lineHeight: 1.3 }}>
+                {detailModal.nickname}
+                <span style={{ color: '#bbb', margin: '0 8px', fontWeight: 400 }}>=</span>
+                <span style={{ color: detailModal.real_name ? '#111' : '#bbb' }}>{detailModal.real_name || '-'}</span>
+              </div>
+              <button onClick={copyMemberInfo} title="닉네임 + 실명 복사" style={{ border: '1px solid #ccc', background: '#fff', borderRadius: 6, padding: '4px 8px', fontSize: 14, cursor: 'pointer' }}>📋</button>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 16 }}>
+            {/* 뱃지 */}
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10 }}>
+              {detailModal.linked
+                ? <span className="admin-badge auth">가입완료</span>
+                : <span className="admin-badge pending">앱 미연동 회원</span>}
+              {detailModal.strava_connected && <span className="admin-badge strava">Strava</span>}
+              {detailModal.crew_name && <span className="admin-badge" style={{ background: '#fbe9ec', color: '#A51C30' }}>{detailModal.crew_name}</span>}
+            </div>
+
+            {/* 가입일 */}
+            <div style={{ fontSize: 12, color: '#666', marginBottom: 12 }}>
+              📅 가입일: {detailModal.joined_at ? new Date(detailModal.joined_at).toLocaleDateString('ko-KR') : '-'}
+            </div>
+
+            {/* 개인정보 섹션 */}
+            <div style={{ border: '1px solid #eee', borderRadius: 10, padding: 12, marginBottom: 14 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                <span style={{ fontSize: 13, fontWeight: 700 }}>개인정보</span>
+                {detailModal.linked ? (
+                  <button onClick={toggleUnmask} style={{ fontSize: 11, padding: '4px 10px', borderRadius: 6, border: '1px solid #ccc', background: '#fff', cursor: 'pointer' }}>
+                    {detailModal.masked ? '🔒 전체보기' : '🔓 마스킹'}
+                  </button>
+                ) : (
+                  <span style={{ fontSize: 11, color: '#999' }}>미연동</span>
+                )}
+              </div>
+              <div style={{ fontSize: 12, color: '#333', lineHeight: 1.9 }}>
+                <div>이름: {detailModal.real_name || <span style={{ color: '#bbb' }}>미연동</span>}</div>
+                <div>전화: {detailModal.phone || <span style={{ color: '#bbb' }}>미연동</span>}</div>
+                <div>이메일: {detailModal.email || <span style={{ color: '#bbb' }}>미연동</span>}</div>
+              </div>
+            </div>
+
+            {/* 통계 */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 14 }}>
               <div style={{ background: '#f5f5f5', borderRadius: 8, padding: 10, textAlign: 'center' }}>
                 <div style={{ fontSize: 18, fontWeight: 700 }}>LV.{detailModal.lv}</div>
                 <div style={{ fontSize: 10, color: '#999' }}>레벨</div>
@@ -967,7 +1050,6 @@ export default function AdminDashboard() {
                 휴식: {detailModal.leave_start} ~ {detailModal.leave_end} ({detailModal.leave_reason})
               </div>
             )}
-
             {detailModal.remark && (
               <div style={{ fontSize: 12, color: '#A51C30', marginBottom: 12, fontStyle: 'italic' }}>비고: {detailModal.remark}</div>
             )}
