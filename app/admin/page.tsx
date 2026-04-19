@@ -126,13 +126,13 @@ export default function AdminDashboard() {
     ])
 
     const stravaSet = new Set((stravaTokens || []).map(t => t.user_id))
-    // 전체 모드면 필터 없이, 크루 선택 시 크루 멤버만
+    // 전체 모드면 필터 없이, 크루 선택 시 crew_id 기준 엄격 필터
+    // (과거엔 crew_members junction OR filter로 불일치 데이터를 보완했으나,
+    //  다중 크루 스키마에서는 같은 사람이 2 row에 걸쳐 중복 표시되는 버그 발생.
+    //  체크박스가 유일한 진실의 원천 — members.crew_id만 사용)
     let filteredMems = mems || []
     if (selectedCrewId !== 'all') {
-      const { data: crewMembersList } = await supabase.from('crew_members').select('member_nickname, user_id').eq('crew_id', selectedCrewId)
-      const crewNicks = new Set((crewMembersList || []).map(cm => cm.member_nickname).filter(Boolean))
-      const crewUserIds = new Set((crewMembersList || []).map(cm => cm.user_id).filter(Boolean))
-      filteredMems = (mems || []).filter(m => m.crew_id === selectedCrewId || crewNicks.has(m.nickname) || (m.user_id && crewUserIds.has(m.user_id)))
+      filteredMems = (mems || []).filter(m => m.crew_id === selectedCrewId)
     }
     const memsWithExtra = filteredMems.map(m => ({
       ...m,
