@@ -5,6 +5,7 @@ import { verifySession } from '@/lib/auth'
 const ADMIN_EMAILS = ['a5214275@naver.com']
 
 type PersonRow = {
+  id: string
   nickname: string
   realname: string | null
   user_id: string | null
@@ -48,7 +49,7 @@ export async function POST(req: NextRequest) {
   // 같은 닉네임의 모든 row 조회
   const { data: rows } = await admin
     .from('members')
-    .select('nickname, realname, user_id, crew_id, lv, total_exp, exp_pct, total_dist, total_days, avatar_url, egg_type, egg_config, strava_athlete_id, created_at')
+    .select('id, nickname, realname, user_id, crew_id, lv, total_exp, exp_pct, total_dist, total_days, avatar_url, egg_type, egg_config, strava_athlete_id, created_at')
     .eq('nickname', nickname)
 
   if (!rows || rows.length === 0) {
@@ -60,30 +61,43 @@ export async function POST(req: NextRequest) {
     if (rows.some(r => r.crew_id === crew_id)) {
       return NextResponse.json({ error: '이미 해당 크루에 소속된 회원입니다' }, { status: 400 })
     }
-    // 원본 row (person-level 필드 복사 대상) — 아무 row
+
     const source = rows[0] as PersonRow & { crew_id: string | null }
-    const { error: insErr } = await admin.from('members').insert({
-      nickname: source.nickname,
-      user_id: source.user_id,
-      realname: source.realname,
-      lv: source.lv,
-      total_exp: source.total_exp,
-      exp_pct: source.exp_pct,
-      total_dist: source.total_dist,
-      total_days: source.total_days,
-      avatar_url: source.avatar_url,
-      egg_type: source.egg_type ?? 'star',
-      egg_config: source.egg_config,
-      strava_athlete_id: source.strava_athlete_id,
-      crew_id,
-      is_active: true,
-      lottery_tickets: 0,
-      remark: null,
-      leave_start: null, leave_end: null, leave_reason: null,
-      // 원본 row의 created_at 복사 (챌린지 가입일 필터용 — 신규 row를 과거 멤버처럼 취급)
-      created_at: source.created_at,
-    })
-    if (insErr) return NextResponse.json({ error: insErr.message }, { status: 500 })
+    // NULL crew_id row 있으면 그걸 UPDATE (유령 row 재발 방지)
+    const nullRow = rows.find(r => r.crew_id === null) as (PersonRow & { crew_id: string | null }) | undefined
+    if (nullRow) {
+      const { error: updErr } = await admin.from('members').update({
+        crew_id,
+        is_active: true,
+        lottery_tickets: 0,
+        remark: null,
+        leave_start: null, leave_end: null, leave_reason: null,
+      }).eq('id', nullRow.id)
+      if (updErr) return NextResponse.json({ error: updErr.message }, { status: 500 })
+    } else {
+      const { error: insErr } = await admin.from('members').insert({
+        nickname: source.nickname,
+        user_id: source.user_id,
+        realname: source.realname,
+        lv: source.lv,
+        total_exp: source.total_exp,
+        exp_pct: source.exp_pct,
+        total_dist: source.total_dist,
+        total_days: source.total_days,
+        avatar_url: source.avatar_url,
+        egg_type: source.egg_type ?? 'star',
+        egg_config: source.egg_config,
+        strava_athlete_id: source.strava_athlete_id,
+        crew_id,
+        is_active: true,
+        lottery_tickets: 0,
+        remark: null,
+        leave_start: null, leave_end: null, leave_reason: null,
+        // 원본 row의 created_at 복사 (챌린지 가입일 필터용 — 신규 row를 과거 멤버처럼 취급)
+        created_at: source.created_at,
+      })
+      if (insErr) return NextResponse.json({ error: insErr.message }, { status: 500 })
+    }
 
     // crew_members 정션에도 추가 (중복 방지)
     if (source.user_id) {
