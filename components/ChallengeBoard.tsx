@@ -220,11 +220,13 @@ export default function ChallengeBoard({
         .filter((t: { team_num: number }) => t.team_num === num)
         .map((t: { member_nickname: string }) => t.member_nickname)
         .filter(nickname => {
-          // 가입일이 챌린지 시작일 이후면 제외
+          // 챌린지 종료일 이후에 처음 생성된 member row는 제외
+          // 주의: new Date('YYYY-MM-DD')는 UTC 00:00으로 파싱되므로
+          // 같은 날짜에 생성된 row가 탈락하는 버그를 피하려면 문자열 비교 사용
           const m = memberMap[nickname]
           if (!m) return false
-          const joinDate = m.created_at ? new Date(m.created_at) : new Date(0)
-          return joinDate <= new Date(challenge.end_date)
+          const joinDay = (m.created_at ?? '1970-01-01').slice(0, 10)
+          return joinDay <= challenge.end_date
         })
 
       // 휴식 멤버 분리
