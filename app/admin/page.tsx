@@ -126,6 +126,14 @@ export default function AdminDashboard() {
     ])
 
     const stravaSet = new Set((stravaTokens || []).map(t => t.user_id))
+
+    // 크루별 카운트 최신화 — members.crew_id 기준 (체크박스 동작 후에도 정확)
+    const crewCountMap = new Map<string, number>()
+    ;(mems || []).forEach((m: { crew_id: string | null }) => {
+      if (m.crew_id) crewCountMap.set(m.crew_id, (crewCountMap.get(m.crew_id) || 0) + 1)
+    })
+    setCrews(prev => prev.map(c => ({ ...c, member_count: crewCountMap.get(c.id) || 0 })))
+
     // 전체 모드면 필터 없이, 크루 선택 시 crew_id 기준 엄격 필터
     // (과거엔 crew_members junction OR filter로 불일치 데이터를 보완했으나,
     //  다중 크루 스키마에서는 같은 사람이 2 row에 걸쳐 중복 표시되는 버그 발생.
