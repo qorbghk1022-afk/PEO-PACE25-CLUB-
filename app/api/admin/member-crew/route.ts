@@ -17,6 +17,7 @@ type PersonRow = {
   egg_type: string | null
   egg_config: unknown
   strava_athlete_id: number | null
+  created_at: string | null
 }
 
 export async function POST(req: NextRequest) {
@@ -47,7 +48,7 @@ export async function POST(req: NextRequest) {
   // 같은 닉네임의 모든 row 조회
   const { data: rows } = await admin
     .from('members')
-    .select('nickname, realname, user_id, crew_id, lv, total_exp, exp_pct, total_dist, total_days, avatar_url, egg_type, egg_config, strava_athlete_id')
+    .select('nickname, realname, user_id, crew_id, lv, total_exp, exp_pct, total_dist, total_days, avatar_url, egg_type, egg_config, strava_athlete_id, created_at')
     .eq('nickname', nickname)
 
   if (!rows || rows.length === 0) {
@@ -79,6 +80,8 @@ export async function POST(req: NextRequest) {
       lottery_tickets: 0,
       remark: null,
       leave_start: null, leave_end: null, leave_reason: null,
+      // 원본 row의 created_at 복사 (챌린지 가입일 필터용 — 신규 row를 과거 멤버처럼 취급)
+      created_at: source.created_at,
     })
     if (insErr) return NextResponse.json({ error: insErr.message }, { status: 500 })
 
