@@ -114,11 +114,14 @@ export default function AdminDashboard() {
     ])
 
     const stravaSet = new Set((stravaTokens || []).map(t => t.user_id))
-    // 해당 크루 멤버 필터 (crew_id 또는 crew_members 기준)
-    const { data: crewMembersList } = await supabase.from('crew_members').select('member_nickname, user_id').eq('crew_id', selectedCrewId)
-    const crewNicks = new Set((crewMembersList || []).map(cm => cm.member_nickname).filter(Boolean))
-    const crewUserIds = new Set((crewMembersList || []).map(cm => cm.user_id).filter(Boolean))
-    const filteredMems = (mems || []).filter(m => m.crew_id === selectedCrewId || crewNicks.has(m.nickname) || (m.user_id && crewUserIds.has(m.user_id)))
+    // 전체 모드면 필터 없이, 크루 선택 시 크루 멤버만
+    let filteredMems = mems || []
+    if (selectedCrewId !== 'all') {
+      const { data: crewMembersList } = await supabase.from('crew_members').select('member_nickname, user_id').eq('crew_id', selectedCrewId)
+      const crewNicks = new Set((crewMembersList || []).map(cm => cm.member_nickname).filter(Boolean))
+      const crewUserIds = new Set((crewMembersList || []).map(cm => cm.user_id).filter(Boolean))
+      filteredMems = (mems || []).filter(m => m.crew_id === selectedCrewId || crewNicks.has(m.nickname) || (m.user_id && crewUserIds.has(m.user_id)))
+    }
     const memsWithExtra = filteredMems.map(m => ({
       ...m,
       strava: m.user_id ? stravaSet.has(m.user_id) : false,
@@ -136,6 +139,8 @@ export default function AdminDashboard() {
   }, [selectedCrewId])
 
   useEffect(() => { if (authorized && selectedCrewId) loadData() }, [authorized, selectedCrewId, loadData])
+  // "전체" 선택 시에도 로드
+  useEffect(() => { if (authorized && selectedCrewId === 'all') loadData() }, [authorized])
 
   // 추첨 탭 진입 시 자동 동기화
   useEffect(() => { if (tab === 'draw' && members.length > 0) syncTickets() }, [tab])
@@ -462,6 +467,11 @@ export default function AdminDashboard() {
 
       {/* 크루 선택 */}
       <div style={{ padding: '8px 16px', borderBottom: '1px solid #eee', display: 'flex', gap: 6, overflowX: 'auto', alignItems: 'center' }}>
+        <button onClick={() => setSelectedCrewId('all')} style={{
+          padding: '6px 14px', borderRadius: 20, border: 'none', fontSize: 13, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap',
+          background: selectedCrewId === 'all' ? '#111' : '#f0f0f0',
+          color: selectedCrewId === 'all' ? '#fff' : '#666',
+        }}>전체</button>
         {crews.map(c => (
           <button key={c.id} onClick={() => setSelectedCrewId(c.id)} style={{
             padding: '6px 14px', borderRadius: 20, border: 'none', fontSize: 13, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap',
@@ -471,7 +481,7 @@ export default function AdminDashboard() {
             {c.name} ({c.member_count})
           </button>
         ))}
-        <button style={{ marginLeft: 'auto', padding: '4px 10px', borderRadius: 6, border: '1px solid #e53935', background: 'none', color: '#e53935', fontSize: 11, cursor: 'pointer', whiteSpace: 'nowrap' }}
+        {selectedCrewId !== 'all' && <button style={{ marginLeft: 'auto', padding: '4px 10px', borderRadius: 6, border: '1px solid #e53935', background: 'none', color: '#e53935', fontSize: 11, cursor: 'pointer', whiteSpace: 'nowrap' }}
           onClick={async () => {
             const crew = crews.find(c => c.id === selectedCrewId)
             if (!crew) return
@@ -485,7 +495,7 @@ export default function AdminDashboard() {
             setCrews(prev => prev.filter(c => c.id !== selectedCrewId))
             if (crews.length > 1) setSelectedCrewId(crews.find(c => c.id !== selectedCrewId)?.id || '')
             alert('크루가 삭제되었습니다.')
-          }}>삭제</button>
+          }}>삭제</button>}
       </div>
 
       <div className="admin-summary">
@@ -549,6 +559,7 @@ export default function AdminDashboard() {
                         {isResting && <span className="admin-badge" style={{ background: '#e3f2fd', color: '#1565c0' }}>휴식</span>}
                       </div>
                       <div className="admin-member-sub">
+                        {selectedCrewId === 'all' && <span style={{ color: '#A51C30', marginRight: 4 }}>{crews.find(c => c.id === m.crew_id)?.name || '크루없음'}</span>}
                         LV.{m.lv} | {(m.total_dist || 0).toFixed(1)}km
                         {m.remark && <span className="admin-remark"> | {m.remark}</span>}
                       </div>

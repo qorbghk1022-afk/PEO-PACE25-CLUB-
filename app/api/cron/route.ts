@@ -24,7 +24,12 @@ import {
 
 // Google Sheets public CSV export
 const SHEET_ID = '1gdEsbzlsIoqo0lEsM3b23VJqsNZwZRW48Z3GATpgaIM'
-const SHEET_CSV_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=0`
+
+// 크루별 시트 설정 (gid로 구분)
+const CREW_SHEETS = [
+  { name: 'HRC', gid: 0, crewId: '2891fdd5-545b-4144-81f6-229df8dd5457' },
+  { name: 'PEO', gid: 9257927, crewId: '0bb28fad-31df-493b-a883-fda564836a64' },
+]
 
 // HRC crew ID (default)
 const HRC_CREW_ID = '2891fdd5-545b-4144-81f6-229df8dd5457'
@@ -51,8 +56,8 @@ export async function GET(request: Request) {
   const log: string[] = []
 
   try {
-    // ─── Step 1: Sync Google Sheets activity data (1기) ───
-    const sheetResult = await syncGoogleSheet(db, log)
+    // ─── Step 1: Sync Google Sheets activity data (크루별) ───
+    const sheetResult = await syncAllCrewSheets(db, log)
 
     // ─── Step 2: Trigger Strava sync (2기) ───
     const stravaResult = await triggerStravaSync(log)
@@ -95,19 +100,37 @@ export async function GET(request: Request) {
 }
 
 // ═══════════════════════════════════════════════════════════
-// Google Sheets sync (1기 raw activity data)
+// Google Sheets sync — 크루별 시트 순회
 // ═══════════════════════════════════════════════════════════
-async function syncGoogleSheet(
+async function syncAllCrewSheets(
   db: ReturnType<typeof createServiceClient>,
   log: string[],
 ) {
+  let totalCount = 0
+  for (const sheet of CREW_SHEETS) {
+    const csvUrl = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${sheet.gid}`
+    const result = await syncGoogleSheet(db, log, csvUrl, sheet.name, sheet.crewId)
+    totalCount += result.count
+  }
+  return { count: totalCount }
+}
+
+async function syncGoogleSheet(
+  db: ReturnType<typeof createServiceClient>,
+  log: string[],
+  csvUrl?: string,
+  sheetName?: string,
+  crewId?: string,
+) {
+  const url = csvUrl || `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=0`
+  const label = sheetName || 'Sheet'
   try {
-    const res = await fetch(SHEET_CSV_URL)
-    if (!res.ok) throw new Error(`Sheet fetch failed: ${res.status}`)
+    const res = await fetch(url)
+    if (!res.ok) throw new Error(`${label} fetch failed: ${res.status}`)
     const csv = await res.text()
     const rows = parseCSV(csv)
     if (rows.length < 2) {
-      log.push('Sheet: no data rows')
+      log.push(`${label}: no data rows`)
       return { count: 0 }
     }
 
@@ -120,7 +143,7 @@ async function syncGoogleSheet(
     const paceIdx = header.findIndex(h => h.includes('페이스'))
 
     if (dateIdx < 0 || nickIdx < 0 || distIdx < 0) {
-      log.push('Sheet: header mismatch')
+      log.push(`${label}: header mismatch`)
       return { count: 0 }
     }
 
@@ -155,7 +178,7 @@ async function syncGoogleSheet(
 
       // Auto-create member if missing
       if (!memberSet.has(nickname)) {
-        await db.from('members').insert({ nickname, is_active: true })
+        await db.from('members').insert({ nickname, is_active: true, crew_id: crewId || null })
         memberSet.add(nickname)
       }
 
@@ -193,11 +216,11 @@ async function syncGoogleSheet(
       if (!error) upsertCount++
     }
 
-    log.push(`Sheet: ${upsertCount} new activities synced`)
+    log.push(`${label}: ${upsertCount} new activities synced`)
     return { count: upsertCount }
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
-    log.push(`Sheet error: ${msg}`)
+    log.push(`${label} error: ${msg}`)
     return { count: 0 }
   }
 }
