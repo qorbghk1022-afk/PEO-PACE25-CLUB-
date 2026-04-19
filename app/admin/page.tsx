@@ -416,17 +416,18 @@ export default function AdminDashboard() {
     loadData()
   }
 
-  // 추첨권 동기화 (활동 기반 실시간 계산 → DB 반영)
+  // 추첨권 동기화 (활동 기반 실시간 계산 → DB 반영) — Q2 (2026-04-20 ~ 07-12)
   async function syncTickets() {
     const challengeDates = [
-      { start: '2026-01-26', end: '2026-02-08' },
-      { start: '2026-02-09', end: '2026-02-22' },
-      { start: '2026-02-23', end: '2026-03-08' },
-      { start: '2026-03-09', end: '2026-03-22' },
-      { start: '2026-03-23', end: '2026-04-05' },
-      { start: '2026-04-06', end: '2026-04-19' },
+      { start: '2026-04-20', end: '2026-05-03' },
+      { start: '2026-05-04', end: '2026-05-17' },
+      { start: '2026-05-18', end: '2026-05-31' },
+      { start: '2026-06-01', end: '2026-06-14' },
+      { start: '2026-06-15', end: '2026-06-28' },
+      { start: '2026-06-29', end: '2026-07-12' },
     ]
-    const sessionDates = ['2026-02-21', '2026-03-21', '2026-04-18']
+    // Q2 정기세션 (매월 2째 토요일)
+    const sessionDates = ['2026-05-09', '2026-06-13', '2026-07-11']
 
     const res = await fetchWithAuth('/api/admin', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },

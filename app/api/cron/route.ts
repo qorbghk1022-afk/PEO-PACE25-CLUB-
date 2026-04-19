@@ -253,171 +253,194 @@ async function triggerStravaSync(log: string[]) {
 }
 
 // ═══════════════════════════════════════════════════════════
-// Challenge rotation: end current → score → new challenge → teams
+// Challenge rotation: multi-crew loop
+// 각 크루마다 독립적으로:
+//   - 현재/미래 챌린지 있으면 skip
+//   - 종료된 챌린지 있으면: 점수 저장 → 새 챌린지 + 팀
+//   - 종료된 챌린지 없으면 (신규 크루): today 기준 bootstrap
 // ═══════════════════════════════════════════════════════════
 async function handleChallengeRotation(
   db: ReturnType<typeof createServiceClient>,
   log: string[],
 ) {
   const today = new Date().toISOString().slice(0, 10)
+  const { data: crews } = await db.from('crews').select('id, name')
+  if (!crews || crews.length === 0) {
+    log.push('Challenge: no crews found')
+    return { rotated: 0 }
+  }
 
-  // Find the most recent challenge that has ended
-  const { data: endedChallenge } = await db
+  let rotatedCount = 0
+  const results: Array<{ crew: string; rotated: boolean; detail?: unknown; error?: string }> = []
+
+  for (const crew of crews) {
+    try {
+      const r = await rotateCrew(db, log, crew as { id: string; name: string }, today)
+      if (r.rotated) rotatedCount++
+      results.push({ crew: crew.name, rotated: r.rotated, detail: r })
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e)
+      log.push(`${crew.name} rotation exception: ${msg}`)
+      results.push({ crew: crew.name, rotated: false, error: msg })
+    }
+  }
+
+  return { rotated: rotatedCount, total_crews: crews.length, results }
+}
+
+async function rotateCrew(
+  db: ReturnType<typeof createServiceClient>,
+  log: string[],
+  crew: { id: string; name: string },
+  today: string,
+) {
+  // Future/ongoing challenge check (crew-scoped)
+  const { data: future } = await db
     .from('challenges')
-    .select('*, seasons!inner(id, generation, start_date, end_date, is_current)')
+    .select('id')
+    .eq('crew_id', crew.id)
+    .gte('end_date', today)
+    .limit(1)
+  if (future && future.length > 0) {
+    log.push(`${crew.name}: current/future challenge exists, skip`)
+    return { rotated: false, reason: 'future_exists' }
+  }
+
+  // Most recent ended challenge for this crew
+  const { data: ended } = await db
+    .from('challenges')
+    .select('id, season_id, start_date, end_date, seasons(generation)')
+    .eq('crew_id', crew.id)
     .lt('end_date', today)
     .order('end_date', { ascending: false })
     .limit(1)
-    .single()
+    .maybeSingle() as {
+      data: {
+        id: string; season_id: string; start_date: string; end_date: string;
+        seasons: { generation: number } | { generation: number }[] | null
+      } | null
+    }
 
-  // Check if there is already a challenge that covers today or the future
-  const { data: futureChallenge } = await db
-    .from('challenges')
-    .select('id')
-    .gte('end_date', today)
-    .limit(1)
+  let newStart: string
+  let newEnd: string
+  let prevGen = 0
+  let scores: Awaited<ReturnType<typeof calcPeriodScoresForCrew>> = []
 
-  if (futureChallenge && futureChallenge.length > 0) {
-    log.push('Challenge: current/future challenge exists, no rotation needed')
-    return { rotated: false }
+  if (ended) {
+    // Score ended period
+    scores = await calcPeriodScoresForCrew(db, ended.start_date, ended.end_date, crew.id)
+    for (let i = 0; i < scores.length; i++) {
+      const s = scores[i]
+      await db.from('member_season_stats').upsert(
+        {
+          member_nickname: s.nickname,
+          season_id: ended.season_id,
+          distance_km: s.distance_km,
+          longest_run_km: s.longest_run_km,
+          avg_pace_sec: s.avg_pace_sec,
+          days_run: s.days_run,
+          efficiency: s.efficiency,
+          speed_score: s.speed_score,
+          endurance_score: s.endurance_score,
+          longrun_score: s.longrun_score,
+          consistency_score: s.consistency_score,
+          efficiency_score: s.efficiency_score,
+          total_score: s.total_score,
+          rank: i + 1,
+        },
+        { onConflict: 'member_nickname,season_id' },
+      )
+    }
+    await db.from('seasons').update({ is_current: false }).eq('id', ended.season_id)
+
+    const d = new Date(`${ended.end_date}T00:00:00Z`)
+    d.setUTCDate(d.getUTCDate() + 1)
+    newStart = toDateStr(d)
+    d.setUTCDate(d.getUTCDate() + 13)
+    newEnd = toDateStr(d)
+    const gen = ended.seasons as { generation: number } | { generation: number }[] | null
+    prevGen = Array.isArray(gen) ? gen[0]?.generation ?? 0 : gen?.generation ?? 0
+  } else {
+    // Bootstrap: no prior challenge for this crew → start today
+    newStart = today
+    const d = new Date(`${today}T00:00:00Z`)
+    d.setUTCDate(d.getUTCDate() + 13)
+    newEnd = toDateStr(d)
+    log.push(`${crew.name}: bootstrap (no prior challenge)`)
   }
 
-  if (!endedChallenge) {
-    log.push('Challenge: no ended challenge found, skipping rotation')
-    return { rotated: false }
-  }
-
-  log.push(`Challenge: rotating from ${endedChallenge.start_date}~${endedChallenge.end_date}`)
-
-  // ─── Calculate Q-scores for the ended challenge period ───
-  const scores = await calcPeriodScores(
-    db,
-    endedChallenge.start_date,
-    endedChallenge.end_date,
-  )
-  log.push(`Scores: calculated for ${scores.length} members`)
-
-  // Save scores to member_season_stats
-  const seasonId = endedChallenge.season_id
-  for (let i = 0; i < scores.length; i++) {
-    const s = scores[i]
-    await db.from('member_season_stats').upsert(
-      {
-        member_nickname: s.nickname,
-        season_id: seasonId,
-        distance_km: s.distance_km,
-        longest_run_km: s.longest_run_km,
-        avg_pace_sec: s.avg_pace_sec,
-        days_run: s.days_run,
-        efficiency: s.efficiency,
-        speed_score: s.speed_score,
-        endurance_score: s.endurance_score,
-        longrun_score: s.longrun_score,
-        consistency_score: s.consistency_score,
-        efficiency_score: s.efficiency_score,
-        total_score: s.total_score,
-        rank: i + 1,
-      },
-      { onConflict: 'member_nickname,season_id' },
-    )
-  }
-
-  // ─── Create new season + challenge ───
-  const endedEnd = new Date(endedChallenge.end_date)
-  const newStart = new Date(endedEnd)
-  newStart.setDate(newStart.getDate() + 1)
-  const newEnd = new Date(newStart)
-  newEnd.setDate(newEnd.getDate() + 13) // 14 days total (start + 13)
-
-  const newStartStr = toDateStr(newStart)
-  const newEndStr = toDateStr(newEnd)
-
-  // Determine generation number
-  const prevGen = endedChallenge.seasons?.generation ?? 1
-  const newGen = prevGen + 1
-
-  // Mark old season as not current
-  await db.from('seasons').update({ is_current: false }).eq('id', seasonId)
-
-  // Create new season
-  const { data: newSeason, error: seasonErr } = await db
+  const { data: newSeason, error: sErr } = await db
     .from('seasons')
     .insert({
-      generation: newGen,
-      start_date: newStartStr,
-      end_date: newEndStr,
+      generation: prevGen + 1,
+      start_date: newStart,
+      end_date: newEnd,
       is_current: true,
+      crew_id: crew.id,
     })
     .select('id')
     .single()
-
-  if (seasonErr || !newSeason) {
-    log.push(`Season create error: ${seasonErr?.message}`)
-    return { rotated: false, error: seasonErr?.message }
+  if (sErr || !newSeason) {
+    log.push(`${crew.name} season create error: ${sErr?.message}`)
+    return { rotated: false, error: sErr?.message }
   }
 
-  // Create new challenge
-  const { data: newChallenge, error: challengeErr } = await db
+  const { data: newChallenge, error: cErr } = await db
     .from('challenges')
     .insert({
       season_id: newSeason.id,
+      crew_id: crew.id,
       goal_km: 15,
       fine_per_km: 3000,
-      start_date: newStartStr,
-      end_date: newEndStr,
+      start_date: newStart,
+      end_date: newEnd,
     })
     .select('id')
     .single()
-
-  if (challengeErr || !newChallenge) {
-    log.push(`Challenge create error: ${challengeErr?.message}`)
-    return { rotated: false, error: challengeErr?.message }
+  if (cErr || !newChallenge) {
+    log.push(`${crew.name} challenge create error: ${cErr?.message}`)
+    return { rotated: false, error: cErr?.message }
   }
 
-  log.push(`New challenge: ${newStartStr}~${newEndStr} (season ${newGen})`)
+  log.push(`${crew.name}: new challenge ${newStart}~${newEnd} (gen ${prevGen + 1})`)
 
-  // ─── Auto-assign teams by Q-score ranking ───
-  const teamAssignments = await assignTeams(
-    db,
-    newChallenge.id,
-    newStartStr,
-    scores,
-    log,
-  )
+  await assignTeamsForCrew(db, newChallenge.id, newStart, scores, crew.id, log, crew.name)
 
   return {
     rotated: true,
-    ended: {
-      start: endedChallenge.start_date,
-      end: endedChallenge.end_date,
-      scores: scores.length,
-    },
-    newChallenge: {
-      id: newChallenge.id,
-      start: newStartStr,
-      end: newEndStr,
-    },
-    teams: teamAssignments,
+    crew: crew.name,
+    newChallenge: { id: newChallenge.id, start: newStart, end: newEnd },
   }
 }
 
 // ═══════════════════════════════════════════════════════════
-// Calculate Q-scores for a date range
+// Calculate Q-scores for a date range, scoped to one crew
+// 활동 필터: crew_id = crewId OR NULL (Strava 등 양쪽 카운트)
+// 멤버 필터: 해당 크루 소속만
 // ═══════════════════════════════════════════════════════════
-async function calcPeriodScores(
+async function calcPeriodScoresForCrew(
   db: ReturnType<typeof createServiceClient>,
   startDate: string,
   endDate: string,
+  crewId: string,
 ) {
+  const { data: crewMembers } = await db
+    .from('members')
+    .select('nickname')
+    .eq('crew_id', crewId)
+    .eq('is_active', true)
+  const crewNicks = new Set((crewMembers || []).map(m => m.nickname))
+  if (crewNicks.size === 0) return []
+
   const { data: activities } = await db
     .from('activities')
-    .select(
-      'member_nickname, distance_km, avg_pace_sec, moving_time_sec, elapsed_time_sec, date',
-    )
+    .select('member_nickname, distance_km, avg_pace_sec, moving_time_sec, elapsed_time_sec, date')
     .gte('date', startDate)
     .lte('date', endDate)
+    .or(`crew_id.eq.${crewId},crew_id.is.null`)
 
-  if (!activities || activities.length === 0) return []
+  const filtered = (activities || []).filter(a => crewNicks.has(a.member_nickname))
+  if (filtered.length === 0) return []
 
   // Aggregate per member
   const stats: Record<
@@ -432,7 +455,7 @@ async function calcPeriodScores(
     }
   > = {}
 
-  for (const a of activities) {
+  for (const a of filtered) {
     const nick = a.member_nickname
     if (!stats[nick]) {
       stats[nick] = {
@@ -496,34 +519,26 @@ async function calcPeriodScores(
 }
 
 // ═══════════════════════════════════════════════════════════
-// Auto-assign teams: rank 1-2 → team 1, rank 3-4 → team 2, etc.
-// REST_MEMBERS with active reasons are excluded from team goals
-// but still assigned to teams.
+// Auto-assign teams for a crew: rank 1-2 → team 1, rank 3-4 → team 2, ...
+// Bootstrap (신규 크루 scores 없음) 시엔 members 순서대로 2명/팀.
+// REST_MEMBERS는 team 0에 배정 (목표 계산 제외, 표시용).
 // ═══════════════════════════════════════════════════════════
-async function assignTeams(
+async function assignTeamsForCrew(
   db: ReturnType<typeof createServiceClient>,
   challengeId: string,
   challengeStartDate: string,
   scores: Array<{ nickname: string; total_score: number }>,
+  crewId: string,
   log: string[],
+  crewName: string,
 ) {
-  // Get all active members in the crew
-  const { data: crewMembers } = await db
-    .from('crew_members')
-    .select('member_nickname')
-    .eq('crew_id', HRC_CREW_ID)
-
-  // If no crew_members table or no results, fall back to active members
-  let memberNicknames: string[]
-  if (crewMembers && crewMembers.length > 0) {
-    memberNicknames = crewMembers.map(cm => cm.member_nickname)
-  } else {
-    const { data: allMembers } = await db
-      .from('members')
-      .select('nickname')
-      .eq('is_active', true)
-    memberNicknames = (allMembers || []).map(m => m.nickname)
-  }
+  // members.crew_id 기준 (체크박스가 진실의 원천)
+  const { data: crewMems } = await db
+    .from('members')
+    .select('nickname')
+    .eq('crew_id', crewId)
+    .eq('is_active', true)
+  const memberNicknames = (crewMems || []).map(m => m.nickname)
 
   // Build ranked list: members with scores first (by rank), then unscored
   const scoredSet = new Set(scores.map(s => s.nickname))
@@ -576,7 +591,7 @@ async function assignTeams(
         0,
       )
       log.push(
-        `Teams: ${activeRanked.length} members → ${numTeams} teams, ${restNicknames.length} resting`,
+        `${crewName} teams: ${activeRanked.length} members → ${numTeams} teams, ${restNicknames.length} resting`,
       )
     }
   }
@@ -665,52 +680,62 @@ async function syncLotteryTickets(
   db: ReturnType<typeof createServiceClient>,
   log: string[],
 ) {
+  // Q2 챌린지 6주기 (04-20 ~ 07-12) — 2주 간격
   const challengeDates = [
-    { start: '2026-01-26', end: '2026-02-08' },
-    { start: '2026-02-09', end: '2026-02-22' },
-    { start: '2026-02-23', end: '2026-03-08' },
-    { start: '2026-03-09', end: '2026-03-22' },
-    { start: '2026-03-23', end: '2026-04-05' },
-    { start: '2026-04-06', end: '2026-04-19' },
+    { start: '2026-04-20', end: '2026-05-03' },
+    { start: '2026-05-04', end: '2026-05-17' },
+    { start: '2026-05-18', end: '2026-05-31' },
+    { start: '2026-06-01', end: '2026-06-14' },
+    { start: '2026-06-15', end: '2026-06-28' },
+    { start: '2026-06-29', end: '2026-07-12' },
   ]
-  const sessionDates = ['2026-02-21', '2026-03-21', '2026-04-18']
+  // Q2 정기세션 (매월 2째 토요일, ≥15km 달성 시 +2장)
+  const sessionDates = ['2026-05-09', '2026-06-13', '2026-07-11']
   const now = new Date()
 
-  const { data: mems } = await db.from('members').select('nickname').eq('crew_id', HRC_CREW_ID)
-  if (!mems || mems.length === 0) { log.push('Tickets: no members'); return { updated: 0 } }
+  const { data: crews } = await db.from('crews').select('id, name')
+  if (!crews || crews.length === 0) { log.push('Tickets: no crews'); return { updated: 0 } }
 
-  // HRC 크루 활동 또는 크루 미지정(Strava) 활동 모두 카운트
-  const crewFilter = `crew_id.eq.${HRC_CREW_ID},crew_id.is.null`
+  let totalUpdated = 0
+  for (const crew of crews) {
+    const { data: mems } = await db.from('members')
+      .select('nickname').eq('crew_id', crew.id).eq('is_active', true)
+    if (!mems || mems.length === 0) continue
 
-  let updated = 0
-  for (const m of mems) {
-    let tickets = 0
+    // 해당 크루 활동 + crew_id=NULL (Strava) 모두 카운트
+    const crewFilter = `crew_id.eq.${crew.id},crew_id.is.null`
 
-    for (const ch of challengeDates) {
-      if (new Date(ch.start) > now) continue
-      const { data: acts } = await db.from('activities').select('distance_km')
-        .eq('member_nickname', m.nickname).gte('date', ch.start).lte('date', ch.end)
-        .or(crewFilter)
-      const total = (acts || []).reduce((s: number, a: { distance_km: number }) => s + Number(a.distance_km), 0)
-      if (total >= 15) tickets++
+    let updated = 0
+    for (const m of mems) {
+      let tickets = 0
+
+      for (const ch of challengeDates) {
+        if (new Date(ch.start) > now) continue
+        const { data: acts } = await db.from('activities').select('distance_km')
+          .eq('member_nickname', m.nickname).gte('date', ch.start).lte('date', ch.end)
+          .or(crewFilter)
+        const total = (acts || []).reduce((s: number, a: { distance_km: number }) => s + Number(a.distance_km), 0)
+        if (total >= 15) tickets++
+      }
+
+      for (const sd of sessionDates) {
+        if (new Date(sd) > now) continue
+        const { data: acts } = await db.from('activities').select('distance_km')
+          .eq('member_nickname', m.nickname).eq('date', sd)
+          .or(crewFilter)
+        const total = (acts || []).reduce((s: number, a: { distance_km: number }) => s + Number(a.distance_km), 0)
+        if (total >= 15) tickets += 2
+      }
+
+      await db.from('members').update({ lottery_tickets: tickets })
+        .eq('nickname', m.nickname).eq('crew_id', crew.id)
+      updated++
     }
-
-    for (const sd of sessionDates) {
-      if (new Date(sd) > now) continue
-      const { data: acts } = await db.from('activities').select('distance_km')
-        .eq('member_nickname', m.nickname).eq('date', sd)
-        .or(crewFilter)
-      const total = (acts || []).reduce((s: number, a: { distance_km: number }) => s + Number(a.distance_km), 0)
-      if (total >= 15) tickets += 2
-    }
-
-    await db.from('members').update({ lottery_tickets: tickets })
-      .eq('nickname', m.nickname).eq('crew_id', HRC_CREW_ID)
-    updated++
+    log.push(`${crew.name} tickets: ${updated} members`)
+    totalUpdated += updated
   }
 
-  log.push(`Tickets: ${updated} members synced`)
-  return { updated }
+  return { updated: totalUpdated }
 }
 
 // ═══════════════════════════════════════════════════════════

@@ -86,8 +86,8 @@ export default function ChallengeBoard({
   async function loadQuarterStats(allChallenges: ChallengeData[]) {
     const memberMap: Record<string, Member> = {}
     members.forEach(m => { memberMap[m.nickname] = m })
-    const qStart = '2026-01-20'
-    const qEnd = '2026-04-19'
+    const qStart = '2026-04-20'
+    const qEnd = '2026-07-12'
     const qChallenges = allChallenges.filter(c => c.start_date >= qStart && c.end_date <= qEnd)
 
     // 분기 내 전체 활동
@@ -133,17 +133,13 @@ export default function ChallengeBoard({
     }
 
     // 정기세션 체크 (매월 3째주 토요일 15km)
-    const sessionDates = ['2026-02-21', '2026-03-21', '2026-04-18']
+    // Q2 정기세션 (매월 2째 토요일)
+    const sessionDates = ['2026-05-09', '2026-06-13', '2026-07-11']
     const sessionMap: Record<string, boolean[]> = {}
-    // 2월 수동 참여자 (데이터 확인됨)
-    const feb21Manual = ['멀루', '네모러너', '머룬', 'JM', '백화']
     for (const nick of members.map(m => m.nickname)) {
       const sessions: boolean[] = []
-      for (let si = 0; si < sessionDates.length; si++) {
-        const sd = sessionDates[si]
+      for (const sd of sessionDates) {
         if (new Date(sd) > new Date()) { sessions.push(false); continue }
-        if (si === 0 && feb21Manual.includes(nick)) { sessions.push(true); continue }
-        // DB에서 확인
         const dayActs = (acts || []).filter(a => a.member_nickname === nick && a.date === sd)
         const dayTotal = dayActs.reduce((s, a) => s + Number(a.distance_km), 0)
         sessions.push(dayTotal >= 15)
@@ -291,8 +287,8 @@ export default function ChallengeBoard({
     : 0
 
   // 분기 계산
-  const quarterStart = '2026-01-20'
-  const quarterEnd = '2026-04-19'
+  const quarterStart = '2026-04-20'
+  const quarterEnd = '2026-07-12'
   const daysLeft = Math.max(0, Math.ceil((new Date(quarterEnd).getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
   const totalQDays = Math.ceil((new Date(quarterEnd).getTime() - new Date(quarterStart).getTime()) / (1000 * 60 * 60 * 24))
   const elapsedQDays = Math.min(Math.ceil((Date.now() - new Date(quarterStart).getTime()) / (1000 * 60 * 60 * 24)), totalQDays)
