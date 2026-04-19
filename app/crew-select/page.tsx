@@ -41,8 +41,8 @@ export default function CrewSelectPage() {
       if (!session) { router.push('/login'); return }
       setUserId(session.user.id)
       // 크루가 있어도 /crew-select 접근 가능 (다중 가입 지원)
-      supabase.from('members').select('nickname').eq('user_id', session.user.id).maybeSingle()
-        .then(({ data }) => { if (data) setNickname(data.nickname) })
+      supabase.from('members').select('nickname').eq('user_id', session.user.id).limit(1)
+        .then(({ data }) => { if (data?.[0]) setNickname(data[0].nickname) })
       setLoading(false)
     })
   }, [router])
@@ -145,7 +145,8 @@ export default function CrewSelectPage() {
             <p className="cs-subtitle">러닝 크루에 가입하거나 새로운 크루를 만들어보세요</p>
             <div className="cs-buttons">
               <button className="cs-btn" onClick={async () => {
-                const { data: mem } = await supabase.from('members').select('total_dist').eq('user_id', userId).maybeSingle()
+                const { data: memRows } = await supabase.from('members').select('total_dist').eq('user_id', userId).limit(1)
+                const mem = memRows?.[0]
                 if (!mem || (mem.total_dist || 0) < 1000) {
                   alert(`크루 생성은 누적 1,000km 이상 달린 러너만 가능합니다.\n현재: ${(mem?.total_dist || 0).toFixed(1)}km`)
                   return

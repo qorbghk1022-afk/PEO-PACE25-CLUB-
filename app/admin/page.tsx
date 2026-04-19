@@ -17,12 +17,15 @@ interface MemberInfo {
   strava: boolean; total_exp: number;
 }
 interface MemberDetail {
-  nickname: string; crew_name: string | null; strava_connected: boolean;
+  nickname: string;
+  crews: Array<{ id: string; name: string }>;
+  strava_connected: boolean;
   real_name: string | null; phone: string | null; email: string | null;
   joined_at: string | null; lv: number; total_dist: number; total_days: number;
   lottery_tickets: number; remark: string | null;
   leave_start: string | null; leave_end: string | null; leave_reason: string | null;
   linked: boolean; masked: boolean;
+  current_crew_id: string | null;
 }
 interface LeaveRow { id: string; member_nickname: string; challenge_id: string; reason: string; reason_detail: string | null; status: string; requested_at: string }
 interface PaymentRow { id: string; member_nickname: string; type: string; amount: number; status: string; month?: string; season_id?: string; created_at: string; paid_at: string | null }
@@ -181,6 +184,9 @@ export default function AdminDashboard() {
     const distKm = parseFloat(manualDist)
     const timeSec = manualTime ? parseDuration(manualTime) : 0
     const paceSec = manualPace ? parsePace(manualPace) : (timeSec && distKm ? Math.round(timeSec / distKm) : 0)
+    // 수동입력은 선택된 크루 기준 (전체 모드면 해당 회원의 첫 크루)
+    const targetMember = members.find(x => x.nickname === manualModal)
+    const manualCrewId = selectedCrewId !== 'all' ? selectedCrewId : (targetMember?.crew_id || null)
     await supabase.from('activities').insert({
       member_nickname: manualModal,
       date: manualDate,
@@ -191,6 +197,7 @@ export default function AdminDashboard() {
       efficiency: timeSec > 0 ? parseFloat((timeSec / (timeSec * 1.05)).toFixed(4)) : 1,
       sport_type: 'Run',
       activity_name: '수동 입력',
+      crew_id: manualCrewId,
     })
     alert(`${manualModal}님의 활동이 추가되었습니다`)
     setManualModal(null)
@@ -202,7 +209,9 @@ export default function AdminDashboard() {
     setMemberActivities([])
     setDetailLoading(true)
     try {
-      const res = await fetchWithAuth(`/api/admin/member-detail?nickname=${encodeURIComponent(m.nickname)}`)
+      const qs = new URLSearchParams({ nickname: m.nickname })
+      if (m.crew_id) qs.set('crew_id', m.crew_id)
+      const res = await fetchWithAuth(`/api/admin/member-detail?${qs.toString()}`)
       if (!res.ok) { alert('상세 정보 로드 실패: ' + (await res.json()).error); return }
       setDetailModal(await res.json() as MemberDetail)
       const { data } = await supabase.from('activities').select('date, distance_km, avg_pace_sec')
@@ -217,11 +226,34 @@ export default function AdminDashboard() {
     if (!detailModal || !detailModal.linked) return
     const willUnmask = detailModal.masked
     if (willUnmask && !confirm('개인정보를 평문으로 표시합니다. 계속할까요?')) return
-    const res = await fetchWithAuth(
-      `/api/admin/member-detail?nickname=${encodeURIComponent(detailModal.nickname)}&unmask=${willUnmask ? 1 : 0}`,
-    )
+    const qs = new URLSearchParams({ nickname: detailModal.nickname, unmask: willUnmask ? '1' : '0' })
+    if (detailModal.current_crew_id) qs.set('crew_id', detailModal.current_crew_id)
+    const res = await fetchWithAuth(`/api/admin/member-detail?${qs.toString()}`)
     if (!res.ok) { alert('로드 실패'); return }
     setDetailModal(await res.json() as MemberDetail)
+  }
+
+  async function toggleCrewMembership(crewId: string) {
+    if (!detailModal) return
+    const joined = detailModal.crews.some(c => c.id === crewId)
+    const crewName = crews.find(c => c.id === crewId)?.name ?? crewId
+    if (!joined) {
+      if (!confirm(`${detailModal.nickname}님을 "${crewName}" 크루에 추가할까요?`)) return
+    } else {
+      if (detailModal.crews.length <= 1) { alert('최소 1개 크루는 유지해야 합니다'); return }
+      if (!confirm(`${detailModal.nickname}님을 "${crewName}" 크루에서 제거할까요? 해당 크루의 추첨권/휴식 정보는 삭제됩니다.`)) return
+    }
+    const res = await fetchWithAuth('/api/admin/member-crew', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: joined ? 'remove' : 'add', nickname: detailModal.nickname, crew_id: crewId }),
+    })
+    if (!res.ok) { alert('실패: ' + (await res.json()).error); return }
+    // 리로드
+    const qs = new URLSearchParams({ nickname: detailModal.nickname })
+    if (detailModal.current_crew_id) qs.set('crew_id', detailModal.current_crew_id)
+    const detailRes = await fetchWithAuth(`/api/admin/member-detail?${qs.toString()}`)
+    if (detailRes.ok) setDetailModal(await detailRes.json() as MemberDetail)
+    loadData()
   }
 
   function copyMemberInfo() {
@@ -998,7 +1030,9 @@ export default function AdminDashboard() {
                 ? <span className="admin-badge auth">가입완료</span>
                 : <span className="admin-badge pending">앱 미연동 회원</span>}
               {detailModal.strava_connected && <span className="admin-badge strava">Strava</span>}
-              {detailModal.crew_name && <span className="admin-badge" style={{ background: '#fbe9ec', color: '#A51C30' }}>{detailModal.crew_name}</span>}
+              {detailModal.crews.map(c => (
+                <span key={c.id} className="admin-badge" style={{ background: '#fbe9ec', color: '#A51C30' }}>{c.name}</span>
+              ))}
             </div>
 
             {/* 가입일 */}
@@ -1022,6 +1056,22 @@ export default function AdminDashboard() {
                 <div>이름: {detailModal.real_name || <span style={{ color: '#bbb' }}>미연동</span>}</div>
                 <div>전화: {detailModal.phone || <span style={{ color: '#bbb' }}>미연동</span>}</div>
                 <div>이메일: {detailModal.email || <span style={{ color: '#bbb' }}>미연동</span>}</div>
+              </div>
+            </div>
+
+            {/* 소속 크루 */}
+            <div style={{ border: '1px solid #eee', borderRadius: 10, padding: 12, marginBottom: 14 }}>
+              <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 8 }}>소속 크루</div>
+              <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
+                {crews.map(c => {
+                  const joined = detailModal.crews.some(x => x.id === c.id)
+                  return (
+                    <label key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, cursor: 'pointer' }}>
+                      <input type="checkbox" checked={joined} onChange={() => toggleCrewMembership(c.id)} />
+                      <span>{c.name}</span>
+                    </label>
+                  )
+                })}
               </div>
             </div>
 

@@ -47,25 +47,32 @@ export async function GET(req: NextRequest) {
 
   const url = new URL(req.url)
   const nickname = url.searchParams.get('nickname')
+  const crewIdParam = url.searchParams.get('crew_id')
   const unmask = url.searchParams.get('unmask') === '1'
 
   if (!nickname) {
     return NextResponse.json({ error: 'nickname 필요' }, { status: 400 })
   }
 
-  const { data: member } = await admin
+  // 같은 닉네임의 모든 row (다중 크루)
+  const { data: rows } = await admin
     .from('members')
     .select('nickname, realname, user_id, crew_id, lv, total_dist, total_days, lottery_tickets, remark, leave_start, leave_end, leave_reason, created_at')
     .eq('nickname', nickname)
-    .maybeSingle()
-  if (!member) {
+
+  if (!rows || rows.length === 0) {
     return NextResponse.json({ error: '회원을 찾을 수 없습니다' }, { status: 404 })
   }
 
-  let crewName: string | null = null
-  if (member.crew_id) {
-    const { data: crew } = await admin.from('crews').select('name').eq('id', member.crew_id).maybeSingle()
-    crewName = crew?.name ?? null
+  // 특정 크루 row 우선, 없으면 첫 번째
+  const member = (crewIdParam && rows.find(r => r.crew_id === crewIdParam)) || rows[0]
+
+  // 소속 크루 목록 (id + name)
+  const crewIds = Array.from(new Set(rows.map(r => r.crew_id).filter(Boolean))) as string[]
+  let crews: Array<{ id: string; name: string }> = []
+  if (crewIds.length > 0) {
+    const { data: crewRows } = await admin.from('crews').select('id, name').in('id', crewIds)
+    crews = (crewRows || []) as Array<{ id: string; name: string }>
   }
 
   let stravaConnected = false
@@ -89,7 +96,7 @@ export async function GET(req: NextRequest) {
 
   return NextResponse.json({
     nickname: member.nickname,
-    crew_name: crewName,
+    crews,
     strava_connected: stravaConnected,
     real_name: unmask ? realName : maskName(realName),
     phone: unmask ? phone : maskPhone(phone),
@@ -105,5 +112,6 @@ export async function GET(req: NextRequest) {
     leave_reason: member.leave_reason,
     linked: !!member.user_id,
     masked: !unmask,
+    current_crew_id: member.crew_id,
   })
 }

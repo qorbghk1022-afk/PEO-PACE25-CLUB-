@@ -53,9 +53,9 @@ export default function OnboardingPage() {
       if (!session) { router.push('/login'); return }
       setUserId(session.user.id)
 
-      supabase.from('members').select('egg_config').eq('user_id', session.user.id).maybeSingle()
+      supabase.from('members').select('egg_config').eq('user_id', session.user.id).limit(1)
         .then(({ data }) => {
-          if (data?.egg_config?.pattern) router.push('/crew-select')
+          if (data?.[0]?.egg_config?.pattern) router.push('/crew-select')
         })
     })
   }, [router])

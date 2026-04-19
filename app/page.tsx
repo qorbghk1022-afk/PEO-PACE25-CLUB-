@@ -65,9 +65,10 @@ export default function Home() {
       if (!session) { router.push('/login'); return }
       setCurrentUserId(session.user.id)
 
-      // 온보딩 체크
-      const { data: myMem } = await supabase
-        .from('members').select('egg_config').eq('user_id', session.user.id).maybeSingle()
+      // 온보딩 체크 (다중 크루 대응: .limit(1))
+      const { data: myMemRows } = await supabase
+        .from('members').select('egg_config').eq('user_id', session.user.id).limit(1)
+      const myMem = myMemRows?.[0]
       if (myMem && (!myMem.egg_config || !myMem.egg_config.pattern)) {
         router.push('/onboarding')
         return
@@ -149,10 +150,11 @@ export default function Home() {
     if (userId) {
       let mine = m.find((mem: Member) => mem.user_id === userId)
       if (!mine) {
-        // fallback: search without is_active filter (new users may have is_active=false)
-        const { data: myMember, error: myErr } = await supabase
-          .from('members').select('*').eq('user_id', userId).maybeSingle()
-        if (myMember) mine = myMember as Member
+        // fallback: search without is_active filter + 현재 크루 우선
+        let fallbackQuery = supabase.from('members').select('*').eq('user_id', userId)
+        if (userCrewId) fallbackQuery = fallbackQuery.eq('crew_id', userCrewId)
+        const { data: myMember, error: myErr } = await fallbackQuery.limit(1)
+        if (myMember?.[0]) mine = myMember[0] as Member
         if (myErr) console.warn('member fallback error:', myErr)
       }
       setCurrentMember(mine ?? null)

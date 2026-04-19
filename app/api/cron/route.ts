@@ -193,6 +193,7 @@ async function syncGoogleSheet(
         efficiency,
         sport_type: 'Run',
         activity_name: `Sheet sync ${dateStr}`,
+        crew_id: crewId || null,
       })
     }
 
@@ -202,14 +203,16 @@ async function syncGoogleSheet(
     const deduped = dedupeActivities(batch)
 
     for (const row of deduped) {
-      // Check if activity already exists for this member+date+distance
-      const { data: existing } = await db
+      // Check if activity already exists for this member+date+distance within the same crew
+      let existQuery = db
         .from('activities')
         .select('id')
         .eq('member_nickname', row.member_nickname as string)
         .eq('date', row.date as string)
         .eq('distance_km', row.distance_km as number)
-        .limit(1)
+      if (row.crew_id) existQuery = existQuery.eq('crew_id', row.crew_id as string)
+      else existQuery = existQuery.is('crew_id', null)
+      const { data: existing } = await existQuery.limit(1)
 
       if (existing && existing.length > 0) continue
 
@@ -676,6 +679,9 @@ async function syncLotteryTickets(
   const { data: mems } = await db.from('members').select('nickname').eq('crew_id', HRC_CREW_ID)
   if (!mems || mems.length === 0) { log.push('Tickets: no members'); return { updated: 0 } }
 
+  // HRC 크루 활동 또는 크루 미지정(Strava) 활동 모두 카운트
+  const crewFilter = `crew_id.eq.${HRC_CREW_ID},crew_id.is.null`
+
   let updated = 0
   for (const m of mems) {
     let tickets = 0
@@ -684,6 +690,7 @@ async function syncLotteryTickets(
       if (new Date(ch.start) > now) continue
       const { data: acts } = await db.from('activities').select('distance_km')
         .eq('member_nickname', m.nickname).gte('date', ch.start).lte('date', ch.end)
+        .or(crewFilter)
       const total = (acts || []).reduce((s: number, a: { distance_km: number }) => s + Number(a.distance_km), 0)
       if (total >= 15) tickets++
     }
@@ -692,11 +699,13 @@ async function syncLotteryTickets(
       if (new Date(sd) > now) continue
       const { data: acts } = await db.from('activities').select('distance_km')
         .eq('member_nickname', m.nickname).eq('date', sd)
+        .or(crewFilter)
       const total = (acts || []).reduce((s: number, a: { distance_km: number }) => s + Number(a.distance_km), 0)
       if (total >= 15) tickets += 2
     }
 
-    await db.from('members').update({ lottery_tickets: tickets }).eq('nickname', m.nickname)
+    await db.from('members').update({ lottery_tickets: tickets })
+      .eq('nickname', m.nickname).eq('crew_id', HRC_CREW_ID)
     updated++
   }
 

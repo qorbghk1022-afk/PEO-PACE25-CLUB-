@@ -149,6 +149,7 @@ export async function POST(req: NextRequest) {
       activity_name: activity.name,
       athlete_firstname: activity.athlete?.firstname,
       athlete_lastname: activity.athlete?.lastname,
+      crew_id: null, // Strava 웹훅은 소속 크루 모두에 카운트
     }, { onConflict: 'strava_activity_id' })
 
     if (insertErr) {

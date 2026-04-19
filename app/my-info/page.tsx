@@ -55,8 +55,9 @@ export default function MyInfoPage() {
       if (!session) { router.push('/login'); return }
       setUserId(session.user.id)
 
-      const { data: member } = await supabase.from('members').select('nickname, lv, avatar_url')
-        .eq('user_id', session.user.id).maybeSingle()
+      const { data: memberRows } = await supabase.from('members').select('nickname, lv, avatar_url')
+        .eq('user_id', session.user.id).limit(1)
+      const member = memberRows?.[0]
       if (member) {
         setNickname(member.nickname)
         setLv(member.lv)

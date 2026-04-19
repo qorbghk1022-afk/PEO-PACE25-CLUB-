@@ -27,6 +27,7 @@ export async function POST(req: NextRequest) {
     const { data: mems } = await admin.from('members').select('nickname').eq('crew_id', crew_id)
     if (!mems) return NextResponse.json({ error: '멤버 조회 실패' }, { status: 500 })
 
+    const crewFilter = `crew_id.eq.${crew_id},crew_id.is.null`
     const results: { nickname: string; tickets: number }[] = []
 
     for (const m of mems) {
@@ -36,6 +37,7 @@ export async function POST(req: NextRequest) {
         if (new Date(ch.start) > new Date()) continue
         const { data: acts } = await admin.from('activities').select('distance_km')
           .eq('member_nickname', m.nickname).gte('date', ch.start).lte('date', ch.end)
+          .or(crewFilter)
         const total = (acts || []).reduce((s: number, a: { distance_km: number }) => s + Number(a.distance_km), 0)
         if (total >= 15) tickets++
       }
@@ -44,12 +46,14 @@ export async function POST(req: NextRequest) {
         if (new Date(sd) > new Date()) continue
         const { data: acts } = await admin.from('activities').select('distance_km')
           .eq('member_nickname', m.nickname).eq('date', sd)
+          .or(crewFilter)
         const total = (acts || []).reduce((s: number, a: { distance_km: number }) => s + Number(a.distance_km), 0)
         if (total >= 15) tickets += 2
       }
 
       results.push({ nickname: m.nickname, tickets })
-      await admin.from('members').update({ lottery_tickets: tickets }).eq('nickname', m.nickname)
+      await admin.from('members').update({ lottery_tickets: tickets })
+        .eq('nickname', m.nickname).eq('crew_id', crew_id)
     }
 
     return NextResponse.json({ ok: true, results })

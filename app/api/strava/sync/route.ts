@@ -74,6 +74,7 @@ export async function POST(request: Request) {
         efficiency,
         sport_type: act.sport_type || act.type,
         activity_name: act.name,
+        crew_id: null, // Strava 활동은 소속 크루 모두에 카운트
       }, { onConflict: 'strava_activity_id', ignoreDuplicates: true })
 
       if (!error) insertCount++
