@@ -47,9 +47,10 @@ export default function SeasonDraw({ member, members: _members, crewId }: { memb
     const now = new Date()
     const crewFilter = `crew_id.eq.${crewId},crew_id.is.null`
     // 챌린지 완주 체크 — 분기 내 2주 챌린지 각각 ≥15km (해당 크루 + Strava만)
+    const todayStrForCh = now.toISOString().slice(0, 10)
     const clears: boolean[] = []
     for (const ch of q.challengeDates) {
-      if (new Date(ch.start) > now) { clears.push(false); continue }
+      if (ch.start > todayStrForCh) { clears.push(false); continue }
       const { data } = await supabase.from('activities').select('distance_km')
         .eq('member_nickname', member.nickname).gte('date', ch.start).lte('date', ch.end)
         .or(crewFilter)
@@ -58,11 +59,14 @@ export default function SeasonDraw({ member, members: _members, crewId }: { memb
     }
     setChallengeClears(clears)
 
-    // 세션 참여 체크 — activities ≥15km 또는 manualSessions 인정
-    const manual = q.manualSessions ?? {}
+    // 세션 참여 체크 — activities ≥15km 또는 manualSessions 인정 (해당 크루만)
+    const manualApplies = !q.manualSessionsCrewId || q.manualSessionsCrewId === crewId
+    const manual = manualApplies ? (q.manualSessions ?? {}) : {}
+    const todayStr = now.toISOString().slice(0, 10)
     const sessions: (boolean | null)[] = []
     for (const sd of q.sessionDates) {
-      if (new Date(sd) > now) { sessions.push(null); continue }
+      // 미래 날짜: 문자열 비교로 엄격 판정 (timezone 이슈 방지)
+      if (sd > todayStr) { sessions.push(null); continue }
       if (manual[sd]?.includes(member.nickname)) { sessions.push(true); continue }
       const { data } = await supabase.from('activities').select('distance_km')
         .eq('member_nickname', member.nickname).eq('date', sd)

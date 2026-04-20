@@ -15,6 +15,7 @@ export interface QuarterConfig {
   challengeDates: Array<{ start: string; end: string }>   // 2주 챌린지 6개
   sessionDates: string[]             // 정기세션 3개 (매월 2째 토)
   manualSessions?: Record<string, string[]>  // { 'YYYY-MM-DD': [닉네임...] }
+  manualSessionsCrewId?: string       // 이 crew_id에만 manualSessions 적용 (다른 크루엔 미적용)
 }
 
 export const QUARTERS: QuarterConfig[] = [
@@ -51,6 +52,7 @@ export const QUARTERS: QuarterConfig[] = [
       // 3월 (03-14): 참여자 없음
       '2026-04-11': ['머룬'],
     },
+    manualSessionsCrewId: '2891fdd5-545b-4144-81f6-229df8dd5457', // HRC 전용 (PEO는 Q1 미존재)
   },
 ]
 

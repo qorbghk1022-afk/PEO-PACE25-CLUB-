@@ -174,16 +174,17 @@ export default function ChallengeBoard({
     }
 
 
-    // 정기세션 체크 (매월 3째주 토요일 15km)
-    // 분기별 정기세션 (QUARTERS[quarterIdx].sessionDates)
+    // 정기세션 체크 — 분기별 정기세션 (매월 2째 토)
+    // manualSessions는 manualSessionsCrewId가 지정되면 해당 크루에만 적용
     const sessionDates = q.sessionDates
-    const manualSessions = q.manualSessions ?? {}
+    const manualApplies = !q.manualSessionsCrewId || q.manualSessionsCrewId === crewId
+    const manualSessions = manualApplies ? (q.manualSessions ?? {}) : {}
+    const todayStr = new Date().toISOString().slice(0, 10)
     const sessionMap: Record<string, boolean[]> = {}
     for (const nick of members.map(m => m.nickname)) {
       const sessions: boolean[] = []
       for (const sd of sessionDates) {
-        if (new Date(sd) > new Date()) { sessions.push(false); continue }
-        // manualSessions에 해당 날짜 + 닉네임 있으면 자동 참여 인정 (Q1 2-21 특수)
+        if (sd > todayStr) { sessions.push(false); continue }
         if (manualSessions[sd]?.includes(nick)) { sessions.push(true); continue }
         const dayActs = (acts || []).filter(a => a.member_nickname === nick && a.date === sd)
         const dayTotal = dayActs.reduce((s, a) => s + Number(a.distance_km), 0)
