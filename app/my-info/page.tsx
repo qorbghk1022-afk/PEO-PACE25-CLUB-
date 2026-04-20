@@ -88,11 +88,12 @@ export default function MyInfoPage() {
 
   async function handleNicknameSave() {
     if (!newNickname.trim()) return
-    const banned = ['시발','씨발','병신','지랄','개새끼','fuck','shit','bitch','asshole','nigger','sex','섹스','야동','porn','죽어','살인']
-    if (banned.some(w => newNickname.trim().toLowerCase().includes(w))) { setNicknameMsg('사용할 수 없는 닉네임이에요'); return }
-    const { data: existing } = await supabase.from('members').select('nickname').eq('nickname', newNickname.trim()).maybeSingle()
-    if (existing) { setNicknameMsg('이미 사용 중인 닉네임이에요'); return }
-    await supabase.from('members').update({ nickname: newNickname.trim() }).eq('nickname', nickname)
+    const res = await fetchWithAuth('/api/profile/rename', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ newNickname: newNickname.trim() }),
+    })
+    const result = await res.json()
+    if (!res.ok) { setNicknameMsg(result.error || '변경 실패'); return }
     setNickname(newNickname.trim())
     setEditingNickname(false)
     setNicknameMsg('변경되었습니다')
