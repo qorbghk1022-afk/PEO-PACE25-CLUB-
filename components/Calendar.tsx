@@ -40,12 +40,14 @@ function fmtDate(d: Date) { return `${d.getFullYear()}-${String(d.getMonth()+1).
 function fmtShort(d: Date) { return `${d.getMonth() + 1}/${d.getDate()}` }
 
 export default function Calendar({
-  member, members, onSelectMember
+  member, members, onSelectMember, crewId
 }: {
   member: Member | null
   members: Member[]
   onSelectMember: (m: Member) => void
+  crewId?: string | null
 }) {
+  void members; void onSelectMember
   const today = new Date()
   const [period, setPeriod] = useState<PeriodType>('1m')
   const [periodOffset, setPeriodOffset] = useState(0)
@@ -55,8 +57,22 @@ export default function Calendar({
   const [year, setYear] = useState(today.getFullYear())
   const [month, setMonth] = useState(today.getMonth() + 1)
   const [activities, setActivities] = useState<Activity[]>([])
+  const [challengePeriods, setChallengePeriods] = useState<{ start: string; end: string }[]>([])
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+
+  // 크루 챌린지 기간 로드 (band 색상용)
+  useEffect(() => {
+    if (!crewId) { setChallengePeriods([]); return }
+    supabase
+      .from('challenges')
+      .select('start_date, end_date')
+      .eq('crew_id', crewId)
+      .order('start_date', { ascending: true })
+      .then(({ data }) => {
+        setChallengePeriods((data || []).map(c => ({ start: c.start_date, end: c.end_date })))
+      })
+  }, [crewId])
 
   // 기간별 스탯
   const [periodStats, setPeriodStats] = useState({ distance: 0, longest: 0, avgPace: 0, days: 0 })
@@ -215,10 +231,12 @@ export default function Calendar({
                   const hasRun = dayActs.length > 0
                   const isToday = today.getFullYear() === year && today.getMonth() + 1 === month && today.getDate() === day
                   const isSelected = selectedDate === dateStr
+                  const chIdx = challengePeriods.findIndex(c => dateStr >= c.start && dateStr <= c.end)
+                  const bandCls = chIdx < 0 ? '' : ` ch-band-${chIdx % 6}`
                   return (
                     <div
                       key={day}
-                      className={`calendar-day${hasRun ? ' has-run' : ''}${isToday ? ' today' : ''}${isSelected ? ' selected' : ''}`}
+                      className={`calendar-day${hasRun ? ' has-run' : ''}${isToday ? ' today' : ''}${isSelected ? ' selected' : ''}${bandCls}`}
                       onClick={() => hasRun && setSelectedDate(isSelected ? null : dateStr)}
                     >
                       <span className="day-num">{day}</span>

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { verifySession } from '@/lib/auth'
+import { QUARTERS } from '@/lib/quarters'
 
 const ADMIN_EMAILS = ['a5214275@naver.com']
 
@@ -74,6 +75,60 @@ export async function POST(req: NextRequest) {
     const { error } = await admin.from('payments').update({ status, paid_at: status === 'paid' ? new Date().toISOString() : null }).eq('id', payment_id)
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     return NextResponse.json({ ok: true })
+  }
+
+  if (action === 'create_challenge') {
+    const { start_date, end_date, goal_km, fine_per_km, season_id } = body
+    if (!crew_id || !start_date || !end_date) {
+      return NextResponse.json({ error: 'crew_id, start_date, end_date 필요' }, { status: 400 })
+    }
+    const { data: existing } = await admin.from('challenges')
+      .select('id').eq('crew_id', crew_id).eq('start_date', start_date).maybeSingle()
+    if (existing) return NextResponse.json({ error: '이미 해당 시작일로 챌린지가 있습니다' }, { status: 409 })
+
+    const { data, error } = await admin.from('challenges').insert({
+      crew_id, season_id: season_id || null,
+      start_date, end_date,
+      goal_km: Number(goal_km) || 15,
+      fine_per_km: Number(fine_per_km) || 3000,
+    }).select().single()
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json({ ok: true, challenge: data })
+  }
+
+  if (action === 'auto_create_quarter_challenges') {
+    const { quarter_name, season_id, goal_km, fine_per_km } = body
+    if (!crew_id) return NextResponse.json({ error: 'crew_id 필요' }, { status: 400 })
+
+    const q = quarter_name
+      ? QUARTERS.find(x => x.name === quarter_name)
+      : QUARTERS[0]
+    if (!q) return NextResponse.json({ error: '분기를 찾을 수 없습니다' }, { status: 404 })
+
+    const { data: existing } = await admin.from('challenges')
+      .select('start_date').eq('crew_id', crew_id)
+      .gte('start_date', q.start).lte('end_date', q.end)
+    const existingStarts = new Set((existing || []).map(r => r.start_date))
+
+    const rows = q.challengeDates
+      .filter(cd => !existingStarts.has(cd.start))
+      .map(cd => ({
+        crew_id,
+        season_id: season_id || null,
+        start_date: cd.start,
+        end_date: cd.end,
+        goal_km: Number(goal_km) || 15,
+        fine_per_km: Number(fine_per_km) || 3000,
+      }))
+
+    if (rows.length === 0) {
+      return NextResponse.json({ ok: true, created: 0, skipped: q.challengeDates.length, quarter: q.name })
+    }
+    const { error } = await admin.from('challenges').insert(rows)
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json({
+      ok: true, created: rows.length, skipped: q.challengeDates.length - rows.length, quarter: q.name,
+    })
   }
 
   if (action === 'delete_crew') {

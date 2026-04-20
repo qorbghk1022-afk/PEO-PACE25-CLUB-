@@ -380,17 +380,44 @@ export default function AdminDashboard() {
   // Challenge handlers
   async function handleCreateChallenge() {
     if (!newChStart || !newChEnd) { alert('시작일과 종료일을 입력해주세요'); return }
+    if (!selectedCrewId || selectedCrewId === 'all') { alert('크루를 먼저 선택해주세요'); return }
     const currentSeason = seasons.find(s => s.is_current)
-    const { error } = await supabase.from('challenges').insert({
-      season_id: currentSeason?.id || null,
-      goal_km: parseFloat(newChGoal),
-      fine_per_km: 3000,
-      start_date: newChStart,
-      end_date: newChEnd,
+    const res = await fetchWithAuth('/api/admin', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'create_challenge',
+        crew_id: selectedCrewId,
+        season_id: currentSeason?.id || null,
+        start_date: newChStart,
+        end_date: newChEnd,
+        goal_km: parseFloat(newChGoal),
+        fine_per_km: 3000,
+      }),
     })
-    if (error) { alert('오류: ' + error.message); return }
+    const result = await res.json()
+    if (!res.ok) { alert('오류: ' + (result.error || res.statusText)); return }
     alert('챌린지 생성 완료')
     setNewChStart(''); setNewChEnd(''); setNewChGoal('15')
+    loadData()
+  }
+
+  async function handleAutoCreateQuarterChallenges() {
+    if (!selectedCrewId || selectedCrewId === 'all') { alert('크루를 먼저 선택해주세요'); return }
+    if (!confirm('현재 분기(최신)의 2주 챌린지 6개를 자동 생성할까요?\n이미 있는 건 건너뜁니다.')) return
+    const currentSeason = seasons.find(s => s.is_current)
+    const res = await fetchWithAuth('/api/admin', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'auto_create_quarter_challenges',
+        crew_id: selectedCrewId,
+        season_id: currentSeason?.id || null,
+        goal_km: 15,
+        fine_per_km: 3000,
+      }),
+    })
+    const result = await res.json()
+    if (!res.ok) { alert('오류: ' + (result.error || res.statusText)); return }
+    alert(`${result.quarter}: ${result.created}개 생성 / ${result.skipped}개 건너뜀`)
     loadData()
   }
 
@@ -868,6 +895,14 @@ export default function AdminDashboard() {
                 </div>
               )
             })() : <p className="admin-empty-sm">진행 중인 챌린지가 없습니다</p>}
+
+            <div className="admin-section-label" style={{ marginTop: 16 }}>분기 전체 자동 생성</div>
+            <div style={{ fontSize: 12, color: '#666', marginBottom: 8 }}>
+              현재 분기의 2주 챌린지 6개를 한 번에 생성합니다. 이미 있는 건 건너뜁니다.
+            </div>
+            <button className="admin-approve-btn" style={{ marginBottom: 16 }} onClick={handleAutoCreateQuarterChallenges}>
+              현재 분기 2주 챌린지 6개 자동 생성
+            </button>
 
             <div className="admin-section-label" style={{ marginTop: 16 }}>챌린지 수동 생성</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>

@@ -253,10 +253,10 @@ export default function Home() {
           <ChallengeBoard members={members} seasonStats={seasonStats} rollingScores={rollingScores} crewId={crewId} />
         )}
         {activeTab === '추첨' && (
-          <SeasonDraw member={currentMember} members={members} />
+          <SeasonDraw member={currentMember} members={members} crewId={crewId} />
         )}
         {activeTab === '캘린더' && (
-          <Calendar member={currentMember} members={members} onSelectMember={() => {}} />
+          <Calendar member={currentMember} members={members} onSelectMember={() => {}} crewId={crewId} />
         )}
         {activeTab === 'MY' && (
           <MyPage

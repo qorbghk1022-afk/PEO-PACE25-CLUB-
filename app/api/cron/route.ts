@@ -111,12 +111,16 @@ async function syncAllCrewSheets(
   log: string[],
 ) {
   let totalCount = 0
+  const mismatchesByCrew: Record<string, string[]> = {}
   for (const sheet of CREW_SHEETS) {
     const csvUrl = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${sheet.gid}`
     const result = await syncGoogleSheet(db, log, csvUrl, sheet.name, sheet.crewId)
     totalCount += result.count
+    if (result.mismatches && result.mismatches.length > 0) {
+      mismatchesByCrew[sheet.name] = result.mismatches
+    }
   }
-  return { count: totalCount }
+  return { count: totalCount, mismatches: mismatchesByCrew }
 }
 
 async function syncGoogleSheet(
@@ -151,13 +155,15 @@ async function syncGoogleSheet(
       return { count: 0 }
     }
 
-    // Ensure all referenced members exist
-    const { data: existingMembers } = await db
-      .from('members')
-      .select('nickname')
+    // 해당 크루의 멤버만 매칭 (멀티크루 환경에서 오인 매칭 방지)
+    let memberQuery = db.from('members').select('nickname')
+    if (crewId) memberQuery = memberQuery.eq('crew_id', crewId)
+    const { data: existingMembers } = await memberQuery
     const memberSet = new Set((existingMembers || []).map(m => m.nickname))
 
     let upsertCount = 0
+    let skippedCount = 0
+    const mismatches = new Set<string>()
     const batch: Array<Record<string, unknown>> = []
 
     for (let i = 1; i < rows.length; i++) {
@@ -180,10 +186,11 @@ async function syncGoogleSheet(
       const avgPaceSec = paceStr ? parsePaceStr(paceStr) : (distKm > 0 && movingSec > 0 ? Math.round(movingSec / distKm) : 0)
       const efficiency = movingSec > 0 ? movingSec / (movingSec * 1.05) : 1 // approximate (no elapsed for sheet data)
 
-      // Auto-create member if missing
+      // 크루 멤버가 아닌 닉네임 → 자동 생성하지 않고 불일치 목록에 추가, 해당 활동 skip
       if (!memberSet.has(nickname)) {
-        await db.from('members').insert({ nickname, is_active: true, crew_id: crewId || null })
-        memberSet.add(nickname)
+        mismatches.add(nickname)
+        skippedCount++
+        continue
       }
 
       batch.push({
@@ -224,7 +231,11 @@ async function syncGoogleSheet(
     }
 
     log.push(`${label}: ${upsertCount} new activities synced`)
-    return { count: upsertCount }
+    if (mismatches.size > 0) {
+      const list = [...mismatches].join(', ')
+      log.push(`⚠️ ${label} 닉네임 불일치 (${mismatches.size}종, ${skippedCount}건 skip): ${list}`)
+    }
+    return { count: upsertCount, mismatches: [...mismatches], skipped: skippedCount }
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
     log.push(`${label} error: ${msg}`)

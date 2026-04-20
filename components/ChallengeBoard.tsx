@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase/client'
 import type { Member, SeasonStats, RollingScores } from '@/lib/types'
 import ProfilePopup from '@/components/ProfilePopup'
+import { QUARTERS } from '@/lib/quarters'
 
 interface TeamMember {
   nickname: string
@@ -48,13 +49,29 @@ export default function ChallengeBoard({
   crewId: string | null
 }) {
   const [challenges, setChallenges] = useState<ChallengeData[]>([])
-  const [currentIdx, setCurrentIdx] = useState(0)
+  const [currentIdx, setCurrentIdx] = useState(() => {
+    if (typeof window === 'undefined') return 0
+    const v = Number(localStorage.getItem('peo_cb_idx') ?? 0); return Number.isFinite(v) ? v : 0
+  })
+  const [currentQuarterIdx, setCurrentQuarterIdx] = useState(() => {
+    if (typeof window === 'undefined') return 0
+    const v = Number(localStorage.getItem('peo_cb_qidx') ?? 0); return Number.isFinite(v) ? v : 0
+  })
   const [teams, setTeams] = useState<Team[]>([])
   const [period, setPeriod] = useState({ start: '', end: '', goal: 15, fine: 3000 })
   const [loading, setLoading] = useState(true)
   const [leaderNickname, setLeaderNickname] = useState<string | null>(null)
   const [totalFine, setTotalFine] = useState(0)
-  const [viewMode, setViewMode] = useState<'2week' | 'quarter' | 'all'>('2week')
+  const [viewMode, setViewMode] = useState<'2week' | 'quarter' | 'all'>(() => {
+    if (typeof window === 'undefined') return '2week'
+    const v = localStorage.getItem('peo_cb_view')
+    return (v === 'quarter' || v === 'all' || v === '2week') ? v : '2week'
+  })
+
+  // state 변경 시 localStorage 동기화
+  useEffect(() => { if (typeof window !== 'undefined') localStorage.setItem('peo_cb_idx', String(currentIdx)) }, [currentIdx])
+  useEffect(() => { if (typeof window !== 'undefined') localStorage.setItem('peo_cb_qidx', String(currentQuarterIdx)) }, [currentQuarterIdx])
+  useEffect(() => { if (typeof window !== 'undefined') localStorage.setItem('peo_cb_view', viewMode) }, [viewMode])
   const [quarterStats, setQuarterStats] = useState<{ nickname: string; dist: number; fine: number; clears: number; sessions: boolean[]; totalTickets: number }[]>([])
   const [allTimeStats, setAllTimeStats] = useState<{ nickname: string; lv: number; dist: number; score: number }[]>([])
   const [selectedProfile, setSelectedProfile] = useState<Member | null>(null)
@@ -77,51 +94,75 @@ export default function ChallengeBoard({
         if (data && data.length > 0) {
           setChallenges(data)
           setCurrentIdx(0)
-          loadQuarterStats(data)
+          loadQuarterStats(data, currentQuarterIdx)
         }
         setLoading(false)
       })
   }, [crewId])
 
-  async function loadQuarterStats(allChallenges: ChallengeData[]) {
+  // 분기 변경 시 재계산
+  useEffect(() => {
+    if (challenges.length > 0) loadQuarterStats(challenges, currentQuarterIdx)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentQuarterIdx])
+
+  async function loadQuarterStats(allChallenges: ChallengeData[], quarterIdx: number = currentQuarterIdx) {
+    if (!crewId) return
     const memberMap: Record<string, Member> = {}
     members.forEach(m => { memberMap[m.nickname] = m })
-    const qStart = '2026-04-20'
-    const qEnd = '2026-07-12'
+
+    // 크루에 챌린지가 존재하는 분기만 대상 (크루 생성 이전 분기 제외)
+    const available = allChallenges.length > 0
+      ? QUARTERS.filter(q => allChallenges.some(c => c.start_date >= q.start && c.end_date <= q.end))
+      : QUARTERS
+    if (available.length === 0) return
+    const safeIdx = Math.min(Math.max(quarterIdx, 0), available.length - 1)
+    const q = available[safeIdx]
+    const qStart = q.start
+    const qEnd = q.end
     const qChallenges = allChallenges.filter(c => c.start_date >= qStart && c.end_date <= qEnd)
 
-    // 분기 내 전체 활동
+    // 분기 내 전체 활동 — 해당 크루 + Strava(NULL) 만 카운트
+    const crewFilter = `crew_id.eq.${crewId},crew_id.is.null`
     const { data: acts } = await supabase
       .from('activities')
       .select('member_nickname, distance_km, date')
       .gte('date', qStart)
       .lte('date', qEnd)
+      .or(crewFilter)
 
     const distMap: Record<string, number> = {}
     ;(acts || []).forEach(a => {
       distMap[a.member_nickname] = (distMap[a.member_nickname] || 0) + Number(a.distance_km)
     })
 
-    // 각 챌린지별 팀 벌금 계산
-    const fineMap: Record<string, number> = {}
+    // 개인 완주 체크 — QUARTERS.challengeDates 기반 (팀 배정과 무관)
+    // SeasonDraw 탭과 일관된 계산. 각 분기 6개 2주 기간별 합 ≥ 15km이면 +1장
+    const GOAL_KM = 15
     const clearMap: Record<string, number> = {}
+    for (const nick of members.map(m => m.nickname)) clearMap[nick] = 0
+    for (const cp of q.challengeDates) {
+      for (const nick of members.map(m => m.nickname)) {
+        const total = (acts || []).filter(a => a.member_nickname === nick && a.date >= cp.start && a.date <= cp.end)
+          .reduce((s, a) => s + Number(a.distance_km), 0)
+        if (total >= GOAL_KM) clearMap[nick]++
+      }
+    }
+
+    // 팀 벌금 계산 — DB의 challenge_teams 있는 챌린지만 (teams 배정 안 된 Q2 초기엔 0)
+    const fineMap: Record<string, number> = {}
     for (const ch of qChallenges) {
       const { data: teams } = await supabase.from('challenge_teams').select('team_num, member_nickname').eq('challenge_id', ch.id)
-      const { data: chActs } = await supabase.from('activities').select('member_nickname, distance_km').gte('date', ch.start_date).lte('date', ch.end_date)
-
+      if (!teams || teams.length === 0) continue
       const chDist: Record<string, number> = {}
-      ;(chActs || []).forEach(a => { chDist[a.member_nickname] = (chDist[a.member_nickname] || 0) + Number(a.distance_km) })
-
-      // 개인 완주 체크
-      ;(teams || []).forEach(t => {
-        if (!clearMap[t.member_nickname]) clearMap[t.member_nickname] = 0
-        if ((chDist[t.member_nickname] || 0) >= Number(ch.goal_km)) clearMap[t.member_nickname]++
+      ;(acts || []).forEach(a => {
+        if (a.date >= ch.start_date && a.date <= ch.end_date) {
+          chDist[a.member_nickname] = (chDist[a.member_nickname] || 0) + Number(a.distance_km)
+        }
       })
-
-      // 팀별 벌금
-      const teamNums = [...new Set((teams || []).map(t => t.team_num))]
+      const teamNums = [...new Set(teams.map(t => t.team_num))]
       for (const tn of teamNums) {
-        const tmems = (teams || []).filter(t => t.team_num === tn).map(t => t.member_nickname)
+        const tmems = teams.filter(t => t.team_num === tn).map(t => t.member_nickname)
           .filter(n => !isOnLeave(memberMap[n], ch.start_date, ch.end_date))
         if (tmems.length === 0) continue
         const teamGoal = tmems.length * Number(ch.goal_km)
@@ -132,14 +173,18 @@ export default function ChallengeBoard({
       }
     }
 
+
     // 정기세션 체크 (매월 3째주 토요일 15km)
-    // Q2 정기세션 (매월 2째 토요일)
-    const sessionDates = ['2026-05-09', '2026-06-13', '2026-07-11']
+    // 분기별 정기세션 (QUARTERS[quarterIdx].sessionDates)
+    const sessionDates = q.sessionDates
+    const manualSessions = q.manualSessions ?? {}
     const sessionMap: Record<string, boolean[]> = {}
     for (const nick of members.map(m => m.nickname)) {
       const sessions: boolean[] = []
       for (const sd of sessionDates) {
         if (new Date(sd) > new Date()) { sessions.push(false); continue }
+        // manualSessions에 해당 날짜 + 닉네임 있으면 자동 참여 인정 (Q1 2-21 특수)
+        if (manualSessions[sd]?.includes(nick)) { sessions.push(true); continue }
         const dayActs = (acts || []).filter(a => a.member_nickname === nick && a.date === sd)
         const dayTotal = dayActs.reduce((s, a) => s + Number(a.distance_km), 0)
         sessions.push(dayTotal >= 15)
@@ -162,8 +207,8 @@ export default function ChallengeBoard({
 
     setQuarterStats(stats)
 
-    // 전체 데이터
-    const { data: allActs } = await supabase.from('activities').select('member_nickname, distance_km')
+    // 전체 데이터 — 해당 크루만
+    const { data: allActs } = await supabase.from('activities').select('member_nickname, distance_km').or(crewFilter)
     const allDist: Record<string, number> = {}
     ;(allActs || []).forEach(a => { allDist[a.member_nickname] = (allDist[a.member_nickname] || 0) + Number(a.distance_km) })
 
@@ -196,11 +241,14 @@ export default function ChallengeBoard({
       .select('team_num, member_nickname')
       .eq('challenge_id', challenge.id)
 
-    const { data: activities } = await supabase
+    const crewFilter = crewId ? `crew_id.eq.${crewId},crew_id.is.null` : ''
+    let actsQuery = supabase
       .from('activities')
       .select('member_nickname, distance_km')
       .gte('date', challenge.start_date)
       .lte('date', challenge.end_date)
+    if (crewFilter) actsQuery = actsQuery.or(crewFilter)
+    const { data: activities } = await actsQuery
 
     const distMap: Record<string, number> = {}
     ;(activities || []).forEach((a: { member_nickname: string; distance_km: number }) => {
@@ -286,13 +334,15 @@ export default function ChallengeBoard({
     ? Math.round((completedMembers.length / activeMembers.length) * 100)
     : 0
 
-  // 분기 계산
-  const quarterStart = '2026-04-20'
-  const quarterEnd = '2026-07-12'
+  // 크루에 실제 챌린지가 존재하는 분기만 노출 (크루 생성 이전 분기 숨김)
+  const availableQuarters = challenges.length > 0
+    ? QUARTERS.filter(q => challenges.some(c => c.start_date >= q.start && c.end_date <= q.end))
+    : QUARTERS
+  const safeQIdx = Math.min(Math.max(currentQuarterIdx, 0), Math.max(availableQuarters.length - 1, 0))
+  const currentQuarter = availableQuarters[safeQIdx] ?? QUARTERS[0]
+  const quarterStart = currentQuarter.start
+  const quarterEnd = currentQuarter.end
   const daysLeft = Math.max(0, Math.ceil((new Date(quarterEnd).getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
-  const totalQDays = Math.ceil((new Date(quarterEnd).getTime() - new Date(quarterStart).getTime()) / (1000 * 60 * 60 * 24))
-  const elapsedQDays = Math.min(Math.ceil((Date.now() - new Date(quarterStart).getTime()) / (1000 * 60 * 60 * 24)), totalQDays)
-  const progressPct = Math.round((elapsedQDays / totalQDays) * 100)
 
   const quarterTotalFine = quarterStats.reduce((s, m) => s + m.fine, 0)
   const qChallengeCount = challenges.filter(c => c.start_date >= quarterStart && c.end_date <= quarterEnd && new Date(c.start_date) <= new Date()).length
@@ -346,11 +396,14 @@ export default function ChallengeBoard({
             </div>
             <div className="cb-header-row2">
               <div className="cb-nav">
-                <button className="cb-nav-arrow" onClick={() => {}} disabled>‹</button>
+                <button className="cb-nav-arrow"
+                  onClick={() => setCurrentQuarterIdx(i => Math.min(i + 1, availableQuarters.length - 1))}
+                  disabled={safeQIdx >= availableQuarters.length - 1}>‹</button>
                 <span className="cb-nav-label">{quarterStart} ~ {quarterEnd}</span>
-                <button className="cb-nav-arrow" onClick={() => {}} disabled>›</button>
+                <button className="cb-nav-arrow"
+                  onClick={() => setCurrentQuarterIdx(i => Math.max(i - 1, 0))}
+                  disabled={safeQIdx <= 0}>›</button>
               </div>
-              <div className="cb-goal-pct">{progressPct}%</div>
             </div>
           </div>
           <div className="cb-table-wrap">
