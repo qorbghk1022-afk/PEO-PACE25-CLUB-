@@ -27,10 +27,13 @@ export async function POST(req: NextRequest) {
 
   const admin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
 
-  // 세션 유저의 member row 찾기 (단일 크루 기준 - 멀티크루면 첫 row)
-  const { data: myMember } = await admin.from('members')
-    .select('id, nickname, crew_id').eq('user_id', userId).maybeSingle()
-  if (!myMember) return NextResponse.json({ error: '멤버 정보 없음' }, { status: 404 })
+  // 세션 유저의 member row — 멀티크루면 여러 건, 닉은 동일. 첫 row로 현재 닉 확인
+  const { data: myMembers } = await admin.from('members')
+    .select('id, nickname, crew_id').eq('user_id', userId)
+  if (!myMembers || myMembers.length === 0) {
+    return NextResponse.json({ error: '멤버 정보 없음' }, { status: 404 })
+  }
+  const myMember = myMembers[0]
 
   const oldNickname = myMember.nickname
   if (oldNickname === trimmed) return NextResponse.json({ ok: true, message: '동일 닉네임' })
