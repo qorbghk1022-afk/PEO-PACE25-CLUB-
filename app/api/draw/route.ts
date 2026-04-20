@@ -77,7 +77,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: '재추첨은 관리자만 가능합니다' }, { status: 403 })
     }
     await admin.from('draw_results').delete().eq('quarter', quarter).eq('crew_id', crew_id)
-    members = await computeQuarterPool(admin, quarter, crew_id)
   } else {
     // 이미 추첨된 (quarter+crew) 있으면 기존 결과 반환
     const { data: existing } = await admin.from('draw_results').select('id')
@@ -87,13 +86,11 @@ export async function POST(req: NextRequest) {
         .eq('quarter', quarter).eq('crew_id', crew_id).order('rank')
       return NextResponse.json({ results: data })
     }
-    // 일반 모드: 해당 크루 멤버 티켓만
-    const { data } = await admin.from('members')
-      .select('nickname, lottery_tickets')
-      .eq('crew_id', crew_id)
-      .gt('lottery_tickets', 0)
-    members = data
   }
+
+  // 항상 QUARTERS 설정 + activities 기반으로 분기 풀 계산
+  // (DB members.lottery_tickets는 현재 분기만 반영해서 과거 분기 추첨엔 부적합)
+  members = await computeQuarterPool(admin, quarter, crew_id)
 
   if (!members || members.length === 0) return NextResponse.json({ error: '추첨권이 없습니다' }, { status: 400 })
 
