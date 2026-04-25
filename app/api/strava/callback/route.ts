@@ -47,18 +47,28 @@ export async function GET(req: NextRequest) {
   )
 
   // members에 strava_athlete_id 저장
-  await admin.from('members').update({
+  const { error: memErr } = await admin.from('members').update({
     strava_athlete_id: tokenData.athlete.id,
   }).eq('user_id', userId)
+  if (memErr) console.error('[strava/callback] members update error:', memErr)
 
   // strava_tokens 테이블에 토큰 저장 (없으면 생성)
-  await admin.from('strava_tokens').upsert({
+  const { error: tokErr } = await admin.from('strava_tokens').upsert({
     user_id: userId,
     athlete_id: tokenData.athlete.id,
     access_token: tokenData.access_token,
     refresh_token: tokenData.refresh_token,
     expires_at: tokenData.expires_at,
   }, { onConflict: 'user_id' })
+  if (tokErr) console.error('[strava/callback] strava_tokens upsert error:', tokErr, {
+    user_id: userId,
+    athlete_id: tokenData.athlete.id,
+    expires_at_type: typeof tokenData.expires_at,
+    expires_at_value: tokenData.expires_at,
+    has_access_token: !!tokenData.access_token,
+    has_refresh_token: !!tokenData.refresh_token,
+  })
+  else console.log('[strava/callback] strava_tokens upsert OK for user', userId)
 
   return NextResponse.redirect(`${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/?strava=connected`)
 }
