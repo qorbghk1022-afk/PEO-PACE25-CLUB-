@@ -9,6 +9,15 @@ export async function GET(req: NextRequest) {
     return NextResponse.redirect(`${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/?strava=error`)
   }
 
+  // 환경변수 점검 (로그에 keyMissing만 남김 — 값은 노출 안 함)
+  const envCheck = {
+    STRAVA_CLIENT_ID: !!process.env.STRAVA_CLIENT_ID,
+    STRAVA_CLIENT_SECRET: !!process.env.STRAVA_CLIENT_SECRET,
+    STRAVA_CLIENT_ID_len: process.env.STRAVA_CLIENT_ID?.length ?? 0,
+    STRAVA_CLIENT_SECRET_len: process.env.STRAVA_CLIENT_SECRET?.length ?? 0,
+  }
+  console.log('[strava/callback] env check', envCheck)
+
   // Strava에서 토큰 교환
   const tokenRes = await fetch('https://www.strava.com/oauth/token', {
     method: 'POST',
@@ -23,8 +32,14 @@ export async function GET(req: NextRequest) {
   const tokenData = await tokenRes.json()
 
   if (!tokenData.access_token) {
+    console.error('[strava/callback] token exchange failed', {
+      status: tokenRes.status,
+      body: tokenData,
+      envCheck,
+    })
     return NextResponse.redirect(`${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/?strava=error`)
   }
+  console.log('[strava/callback] token exchange OK, athlete_id=', tokenData.athlete?.id)
 
   const admin = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
