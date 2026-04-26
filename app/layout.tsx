@@ -3,8 +3,8 @@ import './globals.css'
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://www.pace25.com'),
-  title: 'PEO — PACE25 CLUB',
-  description: '달리면 성장하는 러너 캐릭터 앱 · 챌린지 + 추첨 + Strava 연동',
+  title: 'PACE25',
+  description: '달리면서 성장하는 러닝 캐릭터 챌린지',
   manifest: '/manifest.json',
   appleWebApp: {
     capable: true,
@@ -12,19 +12,19 @@ export const metadata: Metadata = {
     title: 'PEO',
   },
   openGraph: {
-    title: 'PEO — PACE25 CLUB',
-    description: '달리면 성장하는 러너 캐릭터 앱 · 챌린지 + 추첨 + Strava 연동',
+    title: 'PACE25',
+    description: '달리면서 성장하는 러닝 캐릭터 챌린지',
     url: 'https://www.pace25.com',
     siteName: 'PEO PACE25 CLUB',
     locale: 'ko_KR',
     type: 'website',
-    images: [{ url: '/peo-logo-center.png', alt: 'PEO PACE25 CLUB' }],
+    images: [{ url: '/peo-real-new-black.png', alt: 'PEO PACE25 CLUB' }],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'PEO — PACE25 CLUB',
-    description: '달리면 성장하는 러너 캐릭터 앱 · 챌린지 + 추첨 + Strava 연동',
-    images: ['/peo-logo-center.png'],
+    title: 'PACE25',
+    description: '달리면서 성장하는 러닝 캐릭터 챌린지',
+    images: ['/peo-real-new-black.png'],
   },
   icons: {
     icon: '/peo-egglog-black.png',
