@@ -176,7 +176,7 @@ export default function CrewAdminPage() {
             <div className="admin-leave-form">
               <select id="leave-member" className="myinfo-select">
                 <option value="">멤버 선택</option>
-                {members.filter(m => !m.leave_start).map(m => <option key={m.nickname} value={m.nickname}>{m.nickname}</option>)}
+                {members.filter(m => !m.leave_start || (m.leave_end ?? '') < new Date().toISOString().slice(0,10)).map(m => <option key={m.nickname} value={m.nickname}>{m.nickname}</option>)}
               </select>
               <select id="leave-reason" className="myinfo-select">
                 <option value="병가">병가</option>
