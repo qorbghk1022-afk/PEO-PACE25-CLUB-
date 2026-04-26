@@ -20,6 +20,26 @@ export async function POST(req: NextRequest) {
   const body = await req.json()
   const { action, crew_id, challenge_dates, session_dates, fines } = body
 
+  if (action === 'set_leave') {
+    const { nickname, leave_start, leave_end, leave_reason } = body
+    if (!nickname || !crew_id) return NextResponse.json({ error: 'nickname, crew_id 필요' }, { status: 400 })
+    const { error } = await admin.from('members')
+      .update({ leave_start, leave_end, leave_reason })
+      .eq('nickname', nickname).eq('crew_id', crew_id)
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json({ ok: true })
+  }
+
+  if (action === 'clear_leave') {
+    const { nickname } = body
+    if (!nickname || !crew_id) return NextResponse.json({ error: 'nickname, crew_id 필요' }, { status: 400 })
+    const { error } = await admin.from('members')
+      .update({ leave_start: null, leave_end: null, leave_reason: null })
+      .eq('nickname', nickname).eq('crew_id', crew_id)
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json({ ok: true })
+  }
+
   if (action === 'sync_tickets') {
     if (!crew_id || !challenge_dates || !session_dates) {
       return NextResponse.json({ error: 'crew_id, challenge_dates, session_dates 필요' }, { status: 400 })

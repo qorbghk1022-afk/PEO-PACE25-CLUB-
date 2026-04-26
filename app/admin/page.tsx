@@ -162,6 +162,15 @@ export default function AdminDashboard() {
   // "전체" 선택 시에도 로드
   useEffect(() => { if (authorized && selectedCrewId === 'all') loadData() }, [authorized])
 
+  // 30초 polling — 활성화 중일 때만 자동 갱신 (Strava 연동/휴식/납부 등)
+  useEffect(() => {
+    if (!authorized || !selectedCrewId) return
+    const interval = setInterval(() => {
+      if (document.visibilityState === 'visible') loadData()
+    }, 30000)
+    return () => clearInterval(interval)
+  }, [authorized, selectedCrewId, loadData])
+
   // 추첨 탭 진입 시 자동 동기화
   useEffect(() => { if (tab === 'draw' && members.length > 0) syncTickets() }, [tab])
 
@@ -283,11 +292,17 @@ export default function AdminDashboard() {
   }
 
   async function handleClearLeave(nickname: string) {
-    await fetchWithAuth('/api/crew/admin', {
+    if (!selectedCrewId || selectedCrewId === 'all') { alert('크루를 먼저 선택해주세요'); return }
+    const res = await fetchWithAuth('/api/admin', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'clear_leave', nickname })
+      body: JSON.stringify({ action: 'clear_leave', crew_id: selectedCrewId, nickname })
     })
-    setMembers(prev => prev.map(m => m.nickname === nickname ? { ...m, leave_start: null, leave_end: null, leave_reason: null } : m))
+    const result = await res.json()
+    if (!res.ok) { alert('오류: ' + (result.error || res.statusText)); return }
+    setMembers(prev => prev.map(m =>
+      (m.nickname === nickname && m.crew_id === selectedCrewId)
+        ? { ...m, leave_start: null, leave_end: null, leave_reason: null } : m
+    ))
   }
 
   async function handleSetLeave() {
@@ -296,11 +311,20 @@ export default function AdminDashboard() {
     const start = (document.getElementById('adm-leave-start') as HTMLInputElement)?.value
     const end = (document.getElementById('adm-leave-end') as HTMLInputElement)?.value
     if (!nick || !start || !end) { alert('모든 항목을 입력해주세요'); return }
-    await fetchWithAuth('/api/crew/admin', {
+    if (!selectedCrewId || selectedCrewId === 'all') { alert('크루를 먼저 선택해주세요'); return }
+    const res = await fetchWithAuth('/api/admin', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'set_leave', nickname: nick, leave_start: start, leave_end: end, leave_reason: reason })
+      body: JSON.stringify({
+        action: 'set_leave', crew_id: selectedCrewId,
+        nickname: nick, leave_start: start, leave_end: end, leave_reason: reason,
+      })
     })
-    setMembers(prev => prev.map(m => m.nickname === nick ? { ...m, leave_start: start, leave_end: end, leave_reason: reason } : m))
+    const result = await res.json()
+    if (!res.ok) { alert('오류: ' + (result.error || res.statusText)); return }
+    setMembers(prev => prev.map(m =>
+      (m.nickname === nick && m.crew_id === selectedCrewId)
+        ? { ...m, leave_start: start, leave_end: end, leave_reason: reason } : m
+    ))
     alert(`${nick}님 휴식 설정 완료`)
   }
 

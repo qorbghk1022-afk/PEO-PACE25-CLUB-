@@ -34,6 +34,15 @@ export default function CrewAdminPage() {
     })
   }, [router])
 
+  // 30초 polling — 활성화 중일 때만 자동 갱신
+  useEffect(() => {
+    if (!crewId) return
+    const interval = setInterval(() => {
+      if (document.visibilityState === 'visible') loadAll(crewId)
+    }, 30000)
+    return () => clearInterval(interval)
+  }, [crewId])
+
   async function loadAll(cid: string) {
     const [{ data: mems }, { data: lvs }, { data: reqs }] = await Promise.all([
       supabase.from('members').select('nickname, lv, total_dist, is_active, user_id, remark, leave_start, leave_end, leave_reason').eq('crew_id', cid),
