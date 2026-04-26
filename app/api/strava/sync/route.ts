@@ -1,13 +1,41 @@
+/**
+ * POST /api/strava/sync
+ * 개인 OAuth 토큰으로 각 사용자의 활동을 sync
+ *
+ * - strava_tokens 테이블의 모든 사용자 순회
+ * - 만료된 access_token은 refresh_token으로 갱신
+ * - /athlete/activities?after=... 로 최근 활동 fetch
+ * - start_date_local 기반 정확한 날짜 + strava_activity_id로 dedup
+ *
+ * 안전망: webhook이 놓친 활동을 매일 한 번씩 catch-up
+ */
 import { NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
-import {
-  calcSpeedScore, calcEnduranceScore, calcLongRunScore,
-  calcConsistencyScore, calcEfficiencyScore, calcTotalScore
-} from '@/lib/scoring'
 
 const STRAVA_API = 'https://www.strava.com/api/v3'
+const LOOKBACK_DAYS = 7  // 최근 7일치 활동을 매일 fetch
 
-async function getStravaToken(): Promise<string> {
+interface StravaToken {
+  user_id: string
+  athlete_id: number
+  access_token: string
+  refresh_token: string
+  expires_at: number
+}
+
+interface StravaActivity {
+  id: number
+  name: string
+  distance: number
+  moving_time: number
+  elapsed_time: number
+  start_date_local: string
+  sport_type: string
+  type: string
+  athlete?: { firstname?: string; lastname?: string }
+}
+
+async function refreshStravaToken(refreshToken: string) {
   const res = await fetch('https://www.strava.com/oauth/token', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -15,12 +43,19 @@ async function getStravaToken(): Promise<string> {
       client_id: process.env.STRAVA_CLIENT_ID,
       client_secret: process.env.STRAVA_CLIENT_SECRET,
       grant_type: 'refresh_token',
-      refresh_token: process.env.STRAVA_REFRESH_TOKEN,
+      refresh_token: refreshToken,
     }),
   })
   const data = await res.json()
-  if (!data.access_token) throw new Error('Strava token 획득 실패: ' + JSON.stringify(data))
-  return data.access_token
+  if (!data.access_token) {
+    console.error('[strava/sync] token refresh failed:', JSON.stringify(data))
+    return null
+  }
+  return {
+    access_token: data.access_token as string,
+    refresh_token: data.refresh_token as string,
+    expires_at: data.expires_at as number,
+  }
 }
 
 export async function POST(request: Request) {
@@ -32,123 +67,117 @@ export async function POST(request: Request) {
   const db = createServiceClient()
 
   try {
-    // 1. Strava 토큰 획득
-    const token = await getStravaToken()
-
-    // 2. 클럽 활동 획득 (Club Activities API)
-    const res = await fetch(
-      `${STRAVA_API}/clubs/${process.env.STRAVA_CLUB_ID}/activities?per_page=200`,
-      { headers: { Authorization: `Bearer ${token}` } }
-    )
-    const activities = await res.json()
-    if (!Array.isArray(activities)) throw new Error('Strava 응답 오류: ' + JSON.stringify(activities))
-
-    // 3. 회원 Strava ID 매핑
-    const { data: members } = await db.from('members').select('nickname, strava_athlete_id').not('strava_athlete_id', 'is', null)
-    const athleteMap = new Map((members || []).map((m: { nickname: string; strava_athlete_id: number }) => [m.strava_athlete_id, m.nickname]))
-
-    // 4. 활동 저장
-    let insertCount = 0
-    const today = new Date().toISOString().slice(0, 10)
-
-    for (const act of activities) {
-      if (act.sport_type !== 'Run' && act.type !== 'Run') continue
-      const nickname = athleteMap.get(act.athlete?.id)
-      if (!nickname) continue
-
-      const distKm = (act.distance || 0) / 1000
-      const movingSec = act.moving_time || 0
-      const elapsedSec = act.elapsed_time || movingSec
-      const avgPaceSec = distKm > 0 ? Math.round(movingSec / distKm) : 0
-      const efficiency = elapsedSec > 0 ? movingSec / elapsedSec : 1
-
-      const { error } = await db.from('activities').upsert({
-        member_nickname: nickname,
-        athlete_firstname: act.athlete?.firstname,
-        athlete_lastname: act.athlete?.lastname,
-        date: today,
-        distance_km: distKm,
-        moving_time_sec: movingSec,
-        elapsed_time_sec: elapsedSec,
-        avg_pace_sec: avgPaceSec,
-        efficiency,
-        sport_type: act.sport_type || act.type,
-        activity_name: act.name,
-        crew_id: null, // Strava 활동은 소속 크루 모두에 카운트
-      }, { onConflict: 'strava_activity_id', ignoreDuplicates: true })
-
-      if (!error) insertCount++
+    const { data: tokens } = await db.from('strava_tokens')
+      .select('user_id, athlete_id, access_token, refresh_token, expires_at')
+    const tokenList = (tokens || []) as StravaToken[]
+    if (tokenList.length === 0) {
+      return NextResponse.json({ success: true, synced: 0, message: 'no connected athletes' })
     }
 
-    // 5. 시즌 점수 재계산
-    await recalcSeasonStats(db)
+    // athlete_id → nickname 매핑 (멀티크루 멤버는 첫 row 사용 — 어차피 같은 닉)
+    const { data: members } = await db.from('members')
+      .select('nickname, strava_athlete_id').not('strava_athlete_id', 'is', null)
+    const nickByAthlete = new Map<number, string>()
+    for (const m of (members || []) as Array<{ nickname: string; strava_athlete_id: number }>) {
+      if (!nickByAthlete.has(m.strava_athlete_id)) nickByAthlete.set(m.strava_athlete_id, m.nickname)
+    }
 
-    // 6. 로그 기록
-    await db.from('sync_logs').insert({ activity_count: insertCount, status: 'success', message: `Synced ${insertCount} activities` })
+    const after = Math.floor(Date.now() / 1000) - LOOKBACK_DAYS * 24 * 3600
+    let totalInserted = 0
+    let totalSkipped = 0
+    const perUser: Array<{ nickname: string; inserted: number; error?: string }> = []
 
-    return NextResponse.json({ success: true, synced: insertCount })
+    for (const t of tokenList) {
+      const nickname = nickByAthlete.get(t.athlete_id)
+      if (!nickname) {
+        perUser.push({ nickname: `athlete_${t.athlete_id}`, inserted: 0, error: 'no_member_nickname' })
+        continue
+      }
+
+      // 1. 토큰 만료 체크 + 갱신
+      let accessToken = t.access_token
+      const now = Math.floor(Date.now() / 1000)
+      if (t.expires_at <= now + 60) {  // 만료 1분 이내도 갱신
+        const refreshed = await refreshStravaToken(t.refresh_token)
+        if (!refreshed) {
+          perUser.push({ nickname, inserted: 0, error: 'token_refresh_failed' })
+          continue
+        }
+        accessToken = refreshed.access_token
+        await db.from('strava_tokens').update({
+          access_token: refreshed.access_token,
+          refresh_token: refreshed.refresh_token,
+          expires_at: refreshed.expires_at,
+        }).eq('user_id', t.user_id)
+      }
+
+      // 2. 최근 활동 fetch
+      const url = `${STRAVA_API}/athlete/activities?after=${after}&per_page=30`
+      const res = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` } })
+      if (!res.ok) {
+        const txt = await res.text()
+        console.error(`[strava/sync] ${nickname} fetch failed:`, res.status, txt)
+        perUser.push({ nickname, inserted: 0, error: `fetch_${res.status}` })
+        continue
+      }
+      const acts = (await res.json()) as StravaActivity[]
+      if (!Array.isArray(acts)) {
+        perUser.push({ nickname, inserted: 0, error: 'bad_response' })
+        continue
+      }
+
+      // 3. Run만 필터링 + upsert
+      let userInserted = 0
+      for (const act of acts) {
+        if (act.sport_type !== 'Run' && act.type !== 'Run') continue
+        const distKm = (act.distance || 0) / 1000
+        const movingSec = act.moving_time || 0
+        const elapsedSec = act.elapsed_time || movingSec
+        const avgPaceSec = distKm > 0 ? Math.round(movingSec / distKm) : 0
+        const date = act.start_date_local?.slice(0, 10) ?? new Date().toISOString().slice(0, 10)
+
+        const { error } = await db.from('activities').upsert({
+          strava_activity_id: act.id,
+          member_nickname: nickname,
+          date,
+          distance_km: distKm,
+          moving_time_sec: movingSec,
+          elapsed_time_sec: elapsedSec,
+          avg_pace_sec: avgPaceSec,
+          efficiency: elapsedSec > 0 ? movingSec / elapsedSec : 1,
+          sport_type: act.sport_type || act.type,
+          activity_name: act.name,
+          athlete_firstname: act.athlete?.firstname,
+          athlete_lastname: act.athlete?.lastname,
+          crew_id: null,  // Strava 활동은 모든 소속 크루 카운트
+        }, { onConflict: 'strava_activity_id', ignoreDuplicates: false })
+
+        if (error) {
+          console.error(`[strava/sync] ${nickname} upsert error:`, error.message)
+        } else {
+          userInserted++
+          totalInserted++
+        }
+      }
+      totalSkipped += acts.length - userInserted
+      perUser.push({ nickname, inserted: userInserted })
+    }
+
+    await db.from('sync_logs').insert({
+      activity_count: totalInserted,
+      status: 'success',
+      message: `[strava] ${tokenList.length} users, ${totalInserted} upserted, ${totalSkipped} skipped`,
+    })
+
+    return NextResponse.json({
+      success: true,
+      synced: totalInserted,
+      users: tokenList.length,
+      perUser,
+    })
   } catch (error) {
-    await db.from('sync_logs').insert({ activity_count: 0, status: 'error', message: String(error) })
-    return NextResponse.json({ error: String(error) }, { status: 500 })
-  }
-}
-
-async function recalcSeasonStats(db: ReturnType<typeof createServiceClient>) {
-  const { data: season } = await db.from('seasons').select('*').eq('is_current', true).single()
-  if (!season) return
-
-  const { data: acts } = await db.from('activities')
-    .select('member_nickname, distance_km, avg_pace_sec, moving_time_sec, elapsed_time_sec, date')
-    .gte('date', season.start_date)
-    .lte('date', season.end_date)
-  if (!acts) return
-
-  // 회원별 집계
-  const stats: Record<string, { dist: number; longest: number; paceSecs: number[]; days: Set<string>; moving: number; elapsed: number }> = {}
-  for (const a of acts) {
-    if (!stats[a.member_nickname]) stats[a.member_nickname] = { dist: 0, longest: 0, paceSecs: [], days: new Set(), moving: 0, elapsed: 0 }
-    const s = stats[a.member_nickname]
-    s.dist += a.distance_km
-    s.longest = Math.max(s.longest, a.distance_km)
-    if (a.avg_pace_sec > 0) s.paceSecs.push(a.avg_pace_sec)
-    s.days.add(a.date)
-    s.moving += a.moving_time_sec || 0
-    s.elapsed += a.elapsed_time_sec || a.moving_time_sec || 0
-  }
-
-  for (const [nick, s] of Object.entries(stats)) {
-    const avgPace = s.paceSecs.length > 0 ? Math.round(s.paceSecs.reduce((a, b) => a + b) / s.paceSecs.length) : 0
-    const eff = s.elapsed > 0 ? s.moving / s.elapsed : 1
-    const daysRun = s.days.size
-    const speed = calcSpeedScore(avgPace)
-    const endurance = calcEnduranceScore(s.dist)
-    const longRun = calcLongRunScore(s.longest)
-    const consistency = calcConsistencyScore(daysRun)
-    const effScore = calcEfficiencyScore(eff)
-    const total = calcTotalScore({ speed, endurance, longRun, consistency, efficiency: effScore })
-
-    await db.from('member_season_stats').upsert({
-      member_nickname: nick,
-      season_id: season.id,
-      distance_km: s.dist,
-      longest_run_km: s.longest,
-      avg_pace_sec: avgPace,
-      days_run: daysRun,
-      efficiency: eff,
-      endurance_score: endurance,
-      speed_score: speed,
-      longrun_score: longRun,
-      consistency_score: consistency,
-      efficiency_score: effScore,
-      total_score: total,
-    }, { onConflict: 'member_nickname,season_id' })
-  }
-
-  // 랜크 업데이트
-  const { data: allStats } = await db.from('member_season_stats').select('id').eq('season_id', season.id).order('total_score', { ascending: false })
-  if (allStats) {
-    for (let i = 0; i < allStats.length; i++) {
-      await db.from('member_season_stats').update({ rank: i + 1 }).eq('id', allStats[i].id)
-    }
+    const msg = error instanceof Error ? error.message : String(error)
+    await db.from('sync_logs').insert({ activity_count: 0, status: 'error', message: `[strava] ${msg}` })
+    return NextResponse.json({ error: msg }, { status: 500 })
   }
 }

@@ -21,11 +21,12 @@ async function main() {
     console.log(`  [${crew}] ${m.nickname} → athlete_id=${m.strava_athlete_id} user=${m.user_id?.slice(0,8) || 'NULL'}`)
   }
 
-  // strava_tokens 테이블
-  const { data: tokens } = await db.from('strava_tokens').select('user_id, athlete_id, expires_at, scope')
+  // strava_tokens 테이블 (scope 컬럼은 없을 수 있음 — 안전하게 *)
+  const { data: tokens, error: tokErr } = await db.from('strava_tokens').select('*')
+  if (tokErr) console.log('\ntokens query error:', tokErr.message)
   console.log(`\nstrava_tokens row: ${tokens?.length || 0}건`)
   for (const t of (tokens || [])) {
-    console.log(`  user=${t.user_id?.slice(0,8)} athlete=${t.athlete_id} scope=${t.scope} exp=${t.expires_at}`)
+    console.log(`  user=${t.user_id?.slice(0,8)} athlete=${t.athlete_id} exp=${t.expires_at}`)
   }
 }
 main().catch(e => { console.error(e); process.exit(1) })
