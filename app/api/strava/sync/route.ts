@@ -14,6 +14,7 @@ import { createServiceClient } from '@/lib/supabase/server'
 
 const STRAVA_API = 'https://www.strava.com/api/v3'
 const LOOKBACK_DAYS = 7  // 최근 7일치 활동을 매일 fetch
+const ACCEPTED_RUN_TYPES = ['Run', 'TrailRun', 'TreadmillRun']  // VirtualRun은 제외
 
 interface StravaToken {
   user_id: string
@@ -126,10 +127,10 @@ export async function POST(request: Request) {
         continue
       }
 
-      // 3. Run만 필터링 + upsert
+      // 3. Run/TrailRun/TreadmillRun 필터링 + upsert
       let userInserted = 0
       for (const act of acts) {
-        if (act.sport_type !== 'Run' && act.type !== 'Run') continue
+        if (!ACCEPTED_RUN_TYPES.includes(act.sport_type) && !ACCEPTED_RUN_TYPES.includes(act.type)) continue
         const distKm = (act.distance || 0) / 1000
         const movingSec = act.moving_time || 0
         const elapsedSec = act.elapsed_time || movingSec

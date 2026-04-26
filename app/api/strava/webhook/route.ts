@@ -109,8 +109,9 @@ export async function POST(req: NextRequest) {
 
     const activity = await actRes.json()
 
-    // Only process runs
-    if (activity.sport_type !== 'Run' && activity.type !== 'Run') {
+    // Run/TrailRun/TreadmillRun만 처리 (VirtualRun, Ride 등 제외)
+    const ACCEPTED_RUN_TYPES = ['Run', 'TrailRun', 'TreadmillRun']
+    if (!ACCEPTED_RUN_TYPES.includes(activity.sport_type) && !ACCEPTED_RUN_TYPES.includes(activity.type)) {
       return NextResponse.json({ ok: true, skipped: true, reason: 'not_a_run' })
     }
 
