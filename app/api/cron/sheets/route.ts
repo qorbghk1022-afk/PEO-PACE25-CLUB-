@@ -83,9 +83,12 @@ async function syncSheet(
     const { data: existingMembers } = await db.from('members').select('nickname').eq('crew_id', crewId)
     const memberSet = new Set((existingMembers || []).map(m => m.nickname))
 
+    // 1) 시트에서 sheet 활동 후보 추출 (가장 이른/늦은 날짜 추적)
     const batch: Array<Record<string, unknown>> = []
     const mismatches = new Set<string>()
     let skippedCount = 0
+    let minDate = '9999-12-31'
+    let maxDate = '0000-01-01'
 
     for (let i = 1; i < rows.length; i++) {
       const row = rows[i]
@@ -114,22 +117,29 @@ async function syncSheet(
         avg_pace_sec: avgPaceSec || null, efficiency,
         sport_type: 'Run', activity_name: `Sheet sync ${dateStr}`, crew_id: crewId,
       })
+      if (dateStr < minDate) minDate = dateStr
+      if (dateStr > maxDate) maxDate = dateStr
     }
 
     const deduped = dedupe(batch)
-    let upsertCount = 0
+    if (deduped.length === 0) { log.push(`${label}: 0 new (empty)`); return { count: 0 } }
 
-    // 동일 (nickname, date, distance, crew) 이미 있는지 체크 후 insert
-    for (const row of deduped) {
-      const { data: existing } = await db.from('activities').select('id')
-        .eq('member_nickname', row.member_nickname as string)
-        .eq('date', row.date as string)
-        .eq('distance_km', row.distance_km as number)
-        .eq('crew_id', row.crew_id as string)
-        .limit(1)
-      if (existing && existing.length > 0) continue
-      const { error } = await db.from('activities').insert(row)
-      if (!error) upsertCount++
+    // 2) DB의 기존 sheet 활동을 한 번에 fetch (해당 크루 + 날짜 범위)
+    const { data: existingRows } = await db.from('activities')
+      .select('member_nickname, date, distance_km')
+      .eq('crew_id', crewId)
+      .gte('date', minDate)
+      .lte('date', maxDate)
+    const existingKeys = new Set((existingRows || []).map(r => `${r.member_nickname}|${r.date}|${r.distance_km}`))
+
+    // 3) 기존에 없는 row만 추출 → bulk insert (chunks of 500)
+    const newRows = deduped.filter(r => !existingKeys.has(`${r.member_nickname}|${r.date}|${r.distance_km}`))
+    let upsertCount = 0
+    for (let i = 0; i < newRows.length; i += 500) {
+      const chunk = newRows.slice(i, i + 500)
+      const { error } = await db.from('activities').insert(chunk)
+      if (!error) upsertCount += chunk.length
+      else log.push(`${label} insert err: ${error.message}`)
     }
 
     log.push(`${label}: ${upsertCount} new`)
