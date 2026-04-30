@@ -62,13 +62,16 @@ export async function GET(request: Request) {
       }
     }
 
+    // 챌린지 회전 후 추첨권 재계산 (활동 데이터가 최신이라는 전제)
+    const ticketResult = await syncLotteryTickets(db, log)
+
     await db.from('sync_logs').insert({
       activity_count: rotated,
-      status: rotated > 0 ? 'success' : 'success',
+      status: 'success',
       message: `rotate: ${log.join(' | ')}`,
     })
 
-    return NextResponse.json({ success: true, rotated, total_crews: crews.length, results, log })
+    return NextResponse.json({ success: true, rotated, total_crews: crews.length, tickets: ticketResult, results, log })
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error)
     log.push(`ERROR: ${msg}`)
@@ -260,6 +263,63 @@ async function calcPeriodScoresForCrew(
       }
     })
     .sort((a, b) => b.total_score - a.total_score)
+}
+
+// ═══════════════════════════════════════════════════════════
+// Sync lottery tickets (Q2 6주기 + 정기세션)
+// ═══════════════════════════════════════════════════════════
+async function syncLotteryTickets(
+  db: ReturnType<typeof createServiceClient>,
+  log: string[],
+) {
+  const challengeDates = [
+    { start: '2026-04-20', end: '2026-05-03' },
+    { start: '2026-05-04', end: '2026-05-17' },
+    { start: '2026-05-18', end: '2026-05-31' },
+    { start: '2026-06-01', end: '2026-06-14' },
+    { start: '2026-06-15', end: '2026-06-28' },
+    { start: '2026-06-29', end: '2026-07-12' },
+  ]
+  const sessionDates = ['2026-05-09', '2026-06-13', '2026-07-11']
+  const now = new Date()
+
+  const { data: crews } = await db.from('crews').select('id, name')
+  if (!crews || crews.length === 0) { log.push('Tickets: no crews'); return { updated: 0 } }
+
+  let totalUpdated = 0
+  for (const crew of crews) {
+    const { data: mems } = await db.from('members')
+      .select('nickname').eq('crew_id', crew.id).eq('is_active', true)
+    if (!mems || mems.length === 0) continue
+    const crewFilter = `crew_id.eq.${crew.id},crew_id.is.null`
+    let updated = 0
+
+    for (const m of mems) {
+      let tickets = 0
+      for (const ch of challengeDates) {
+        if (new Date(ch.start) > now) continue
+        const { data: acts } = await db.from('activities').select('distance_km')
+          .eq('member_nickname', m.nickname).gte('date', ch.start).lte('date', ch.end)
+          .or(crewFilter)
+        const total = (acts || []).reduce((s: number, a: { distance_km: number }) => s + Number(a.distance_km), 0)
+        if (total >= 15) tickets++
+      }
+      for (const sd of sessionDates) {
+        if (new Date(sd) > now) continue
+        const { data: acts } = await db.from('activities').select('distance_km')
+          .eq('member_nickname', m.nickname).eq('date', sd)
+          .or(crewFilter)
+        const total = (acts || []).reduce((s: number, a: { distance_km: number }) => s + Number(a.distance_km), 0)
+        if (total >= 15) tickets += 2
+      }
+      await db.from('members').update({ lottery_tickets: tickets })
+        .eq('nickname', m.nickname).eq('crew_id', crew.id)
+      updated++
+    }
+    log.push(`${crew.name} tickets: ${updated}`)
+    totalUpdated += updated
+  }
+  return { updated: totalUpdated }
 }
 
 async function assignTeamsForCrew(

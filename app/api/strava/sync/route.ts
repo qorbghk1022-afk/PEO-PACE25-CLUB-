@@ -12,8 +12,11 @@
 import { NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 
+export const maxDuration = 300
+
 const STRAVA_API = 'https://www.strava.com/api/v3'
-const LOOKBACK_DAYS = 7  // 최근 7일치 활동을 매일 fetch
+const LOOKBACK_DAYS = 2  // webhook 누락 catch-up용. 7→2로 축소 (API 호출량/처리 시간 ↓)
+const CONCURRENCY = 5    // Strava rate limit (100/15min) 안 넘는 동시 처리 한도
 const ACCEPTED_RUN_TYPES = ['Run', 'TrailRun', 'TreadmillRun']  // VirtualRun은 제외
 
 interface StravaToken {
@@ -84,26 +87,19 @@ export async function POST(request: Request) {
     }
 
     const after = Math.floor(Date.now() / 1000) - LOOKBACK_DAYS * 24 * 3600
-    let totalInserted = 0
-    let totalSkipped = 0
-    const perUser: Array<{ nickname: string; inserted: number; error?: string }> = []
 
-    for (const t of tokenList) {
+    // ─── 한 사용자 처리 (병렬 워커가 호출) ─────────────
+    type UserResult = { nickname: string; inserted: number; skipped: number; error?: string }
+    const processUser = async (t: StravaToken): Promise<UserResult> => {
       const nickname = nickByAthlete.get(t.athlete_id)
-      if (!nickname) {
-        perUser.push({ nickname: `athlete_${t.athlete_id}`, inserted: 0, error: 'no_member_nickname' })
-        continue
-      }
+      if (!nickname) return { nickname: `athlete_${t.athlete_id}`, inserted: 0, skipped: 0, error: 'no_member_nickname' }
 
       // 1. 토큰 만료 체크 + 갱신
       let accessToken = t.access_token
       const now = Math.floor(Date.now() / 1000)
-      if (t.expires_at <= now + 60) {  // 만료 1분 이내도 갱신
+      if (t.expires_at <= now + 60) {
         const refreshed = await refreshStravaToken(t.refresh_token)
-        if (!refreshed) {
-          perUser.push({ nickname, inserted: 0, error: 'token_refresh_failed' })
-          continue
-        }
+        if (!refreshed) return { nickname, inserted: 0, skipped: 0, error: 'token_refresh_failed' }
         accessToken = refreshed.access_token
         await db.from('strava_tokens').update({
           access_token: refreshed.access_token,
@@ -116,53 +112,48 @@ export async function POST(request: Request) {
       const url = `${STRAVA_API}/athlete/activities?after=${after}&per_page=30`
       const res = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` } })
       if (!res.ok) {
-        const txt = await res.text()
-        console.error(`[strava/sync] ${nickname} fetch failed:`, res.status, txt)
-        perUser.push({ nickname, inserted: 0, error: `fetch_${res.status}` })
-        continue
+        console.error(`[strava/sync] ${nickname} fetch failed:`, res.status)
+        return { nickname, inserted: 0, skipped: 0, error: `fetch_${res.status}` }
       }
       const acts = (await res.json()) as StravaActivity[]
-      if (!Array.isArray(acts)) {
-        perUser.push({ nickname, inserted: 0, error: 'bad_response' })
-        continue
-      }
+      if (!Array.isArray(acts)) return { nickname, inserted: 0, skipped: 0, error: 'bad_response' }
 
-      // 3. Run/TrailRun/TreadmillRun 필터링 + upsert
-      let userInserted = 0
-      for (const act of acts) {
-        if (!ACCEPTED_RUN_TYPES.includes(act.sport_type) && !ACCEPTED_RUN_TYPES.includes(act.type)) continue
+      // 3. Run/TrailRun/TreadmillRun 필터링 + 병렬 upsert
+      const runActs = acts.filter(a => ACCEPTED_RUN_TYPES.includes(a.sport_type) || ACCEPTED_RUN_TYPES.includes(a.type))
+      const upsertResults = await Promise.all(runActs.map(async act => {
         const distKm = (act.distance || 0) / 1000
         const movingSec = act.moving_time || 0
         const elapsedSec = act.elapsed_time || movingSec
         const avgPaceSec = distKm > 0 ? Math.round(movingSec / distKm) : 0
         const date = act.start_date_local?.slice(0, 10) ?? new Date().toISOString().slice(0, 10)
-
         const { error } = await db.from('activities').upsert({
-          strava_activity_id: act.id,
-          member_nickname: nickname,
-          date,
-          distance_km: distKm,
-          moving_time_sec: movingSec,
-          elapsed_time_sec: elapsedSec,
-          avg_pace_sec: avgPaceSec,
-          efficiency: elapsedSec > 0 ? movingSec / elapsedSec : 1,
-          sport_type: act.sport_type || act.type,
-          activity_name: act.name,
-          athlete_firstname: act.athlete?.firstname,
-          athlete_lastname: act.athlete?.lastname,
-          crew_id: null,  // Strava 활동은 모든 소속 크루 카운트
+          strava_activity_id: act.id, member_nickname: nickname, date,
+          distance_km: distKm, moving_time_sec: movingSec, elapsed_time_sec: elapsedSec,
+          avg_pace_sec: avgPaceSec, efficiency: elapsedSec > 0 ? movingSec / elapsedSec : 1,
+          sport_type: act.sport_type || act.type, activity_name: act.name,
+          athlete_firstname: act.athlete?.firstname, athlete_lastname: act.athlete?.lastname,
+          crew_id: null,
         }, { onConflict: 'strava_activity_id', ignoreDuplicates: false })
-
-        if (error) {
-          console.error(`[strava/sync] ${nickname} upsert error:`, error.message)
-        } else {
-          userInserted++
-          totalInserted++
-        }
-      }
-      totalSkipped += acts.length - userInserted
-      perUser.push({ nickname, inserted: userInserted })
+        if (error) console.error(`[strava/sync] ${nickname} upsert error:`, error.message)
+        return !error
+      }))
+      const userInserted = upsertResults.filter(Boolean).length
+      return { nickname, inserted: userInserted, skipped: acts.length - userInserted }
     }
+
+    // ─── 동시성 제한 워커 풀 ─────────────────────────────
+    const perUser: UserResult[] = new Array(tokenList.length)
+    let cursor = 0
+    const worker = async () => {
+      while (cursor < tokenList.length) {
+        const i = cursor++
+        perUser[i] = await processUser(tokenList[i])
+      }
+    }
+    await Promise.all(Array.from({ length: Math.min(CONCURRENCY, tokenList.length) }, worker))
+
+    const totalInserted = perUser.reduce((s, r) => s + r.inserted, 0)
+    const totalSkipped = perUser.reduce((s, r) => s + r.skipped, 0)
 
     await db.from('sync_logs').insert({
       activity_count: totalInserted,

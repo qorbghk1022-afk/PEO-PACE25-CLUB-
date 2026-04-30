@@ -12,8 +12,8 @@
 import { NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 
-// Vercel Pro max (default 15s → cron 전체 작업에 부족)
-export const maxDuration = 60
+// Vercel Pro max 300s (60s에서 timeout 발생 → 300으로 상향)
+export const maxDuration = 300
 import {
   calcSpeedScore,
   calcEnduranceScore,

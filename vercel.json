@@ -1,8 +1,16 @@
 {
   "crons": [
     {
-      "path": "/api/cron",
+      "path": "/api/cron/sheets",
       "schedule": "0 23 * * *"
+    },
+    {
+      "path": "/api/cron/strava",
+      "schedule": "0 23 * * *"
+    },
+    {
+      "path": "/api/cron/rotate",
+      "schedule": "10 23 * * *"
     }
   ]
 }
