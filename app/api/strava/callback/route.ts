@@ -1,5 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { QUARTERS, quarterStatus } from '@/lib/quarters'
+
+export const maxDuration = 60
+
+const STRAVA_API = 'https://www.strava.com/api/v3'
+const ACCEPTED_RUN_TYPES = ['Run', 'TrailRun', 'TreadmillRun']
 
 export async function GET(req: NextRequest) {
   const code = req.nextUrl.searchParams.get('code')
@@ -69,6 +75,49 @@ export async function GET(req: NextRequest) {
     has_refresh_token: !!tokenData.refresh_token,
   })
   else console.log('[strava/callback] strava_tokens upsert OK for user', userId)
+
+  // ─── 초기 sync — 현재 분기 시작일부터 활동 백필 (webhook은 이후만 잡으므로) ───
+  try {
+    // 회원의 닉네임 조회 (멀티크루는 첫 row)
+    const { data: memRows } = await admin.from('members').select('nickname').eq('user_id', userId).limit(1)
+    const nickname = memRows?.[0]?.nickname
+    if (nickname) {
+      const activeQ = QUARTERS.find(q => quarterStatus(q) === 'active') || QUARTERS[0]
+      const after = Math.floor(new Date(activeQ.start + 'T00:00:00+09:00').getTime() / 1000)
+      const url = `${STRAVA_API}/athlete/activities?after=${after}&per_page=100`
+      const actsRes = await fetch(url, { headers: { Authorization: `Bearer ${tokenData.access_token}` } })
+      if (actsRes.ok) {
+        const acts = await actsRes.json() as Array<{
+          id: number; start_date_local: string; type: string; sport_type: string;
+          distance: number; moving_time: number; elapsed_time: number; name: string;
+          athlete?: { firstname?: string; lastname?: string }
+        }>
+        let inserted = 0
+        for (const a of acts) {
+          if (!ACCEPTED_RUN_TYPES.includes(a.sport_type) && !ACCEPTED_RUN_TYPES.includes(a.type)) continue
+          const distKm = (a.distance || 0) / 1000
+          const movingSec = a.moving_time || 0
+          const elapsedSec = a.elapsed_time || movingSec
+          const { error } = await admin.from('activities').upsert({
+            strava_activity_id: a.id, member_nickname: nickname,
+            date: a.start_date_local.slice(0, 10),
+            distance_km: distKm, moving_time_sec: movingSec, elapsed_time_sec: elapsedSec,
+            avg_pace_sec: distKm > 0 ? Math.round(movingSec / distKm) : 0,
+            efficiency: elapsedSec > 0 ? movingSec / elapsedSec : 1,
+            sport_type: a.sport_type || a.type, activity_name: a.name,
+            athlete_firstname: a.athlete?.firstname, athlete_lastname: a.athlete?.lastname,
+            crew_id: null,
+          }, { onConflict: 'strava_activity_id', ignoreDuplicates: false })
+          if (!error) inserted++
+        }
+        console.log(`[strava/callback] initial sync OK: ${nickname} ${inserted} activities since ${activeQ.start}`)
+      } else {
+        console.error(`[strava/callback] initial sync fetch failed: ${actsRes.status}`)
+      }
+    }
+  } catch (e) {
+    console.error('[strava/callback] initial sync error:', e)
+  }
 
   return NextResponse.redirect(`${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/?strava=connected`)
 }

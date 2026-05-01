@@ -124,16 +124,40 @@ async function syncSheet(
     const deduped = dedupe(batch)
     if (deduped.length === 0) { log.push(`${label}: 0 new (empty)`); return { count: 0 } }
 
-    // 2) DB의 기존 sheet 활동을 한 번에 fetch (해당 크루 + 날짜 범위)
-    const { data: existingRows } = await db.from('activities')
+    // 2-a) DB의 기존 sheet 활동 fetch (해당 크루 + 날짜 범위)
+    const { data: existingSheetRows } = await db.from('activities')
       .select('member_nickname, date, distance_km')
       .eq('crew_id', crewId)
       .gte('date', minDate)
       .lte('date', maxDate)
-    const existingKeys = new Set((existingRows || []).map(r => `${r.member_nickname}|${r.date}|${r.distance_km}`))
+    const existingSheetKeys = new Set((existingSheetRows || []).map(r => `${r.member_nickname}|${r.date}|${r.distance_km}`))
 
-    // 3) 기존에 없는 row만 추출 → bulk insert (chunks of 500)
-    const newRows = deduped.filter(r => !existingKeys.has(`${r.member_nickname}|${r.date}|${r.distance_km}`))
+    // 2-b) DB의 Strava 활동 fetch (crew_id NULL, 같은 날짜 범위)
+    // sheet row를 insert하기 전에 같은 닉/날짜 Strava 활동이 있으면 skip → dup 방지
+    const { data: stravaRows } = await db.from('activities')
+      .select('member_nickname, date, distance_km')
+      .is('crew_id', null)
+      .not('strava_activity_id', 'is', null)
+      .gte('date', minDate)
+      .lte('date', maxDate)
+    const stravaByNickDate: Record<string, number[]> = {}
+    for (const s of (stravaRows || [])) {
+      const k = `${s.member_nickname}|${s.date}`
+      if (!stravaByNickDate[k]) stravaByNickDate[k] = []
+      stravaByNickDate[k].push(Number(s.distance_km))
+    }
+
+    // 3) 기존에 없고 Strava 중복도 아닌 row만 추출 → bulk insert
+    let stravaSkipped = 0
+    const newRows = deduped.filter(r => {
+      if (existingSheetKeys.has(`${r.member_nickname}|${r.date}|${r.distance_km}`)) return false
+      // Strava에 같은 닉/날짜로 ±0.3km 이내 활동이 있으면 sheet 무시 (Strava 우선)
+      const list = stravaByNickDate[`${r.member_nickname}|${r.date}`] || []
+      const hasStravaMatch = list.some(d => Math.abs(d - Number(r.distance_km)) < 0.3)
+      if (hasStravaMatch) { stravaSkipped++; return false }
+      return true
+    })
+    if (stravaSkipped > 0) log.push(`${label}: Strava dup ${stravaSkipped} skip`)
     let upsertCount = 0
     for (let i = 0; i < newRows.length; i += 500) {
       const chunk = newRows.slice(i, i + 500)
