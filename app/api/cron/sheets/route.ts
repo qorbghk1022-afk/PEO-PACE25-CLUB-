@@ -98,7 +98,10 @@ async function syncSheet(
       if (!nickname) continue
       const dateStr = normalizeDate(row[dateIdx].trim())
       if (!dateStr) continue
-      const distKm = parseFloat(row[distIdx]) || 0
+      // DB는 DECIMAL(8,2). 2자리로 round해서 메모리 dedup 정확도 ↑
+      // (FP 케이스로 round가 안 맞아도 row-by-row insert + unique 에러 무시로 보정)
+      const rawDist = parseFloat(row[distIdx]) || 0
+      const distKm = Number(rawDist.toFixed(2))
       if (distKm <= 0) continue
 
       const timeStr = row[timeIdx]?.trim() || ''
@@ -158,13 +161,18 @@ async function syncSheet(
       return true
     })
     if (stravaSkipped > 0) log.push(`${label}: Strava dup ${stravaSkipped} skip`)
+
+    // row-by-row insert + unique 위반(23505)은 skip.
+    // chunk insert는 1건 충돌로 chunk 전체 실패하니 안전을 위해 row 단위로 처리.
     let upsertCount = 0
-    for (let i = 0; i < newRows.length; i += 500) {
-      const chunk = newRows.slice(i, i + 500)
-      const { error } = await db.from('activities').insert(chunk)
-      if (!error) upsertCount += chunk.length
+    let dupSkipped = 0
+    for (const row of newRows) {
+      const { error } = await db.from('activities').insert(row)
+      if (!error) upsertCount++
+      else if (error.code === '23505') dupSkipped++
       else log.push(`${label} insert err: ${error.message}`)
     }
+    if (dupSkipped > 0) log.push(`${label}: unique dup ${dupSkipped} skip`)
 
     log.push(`${label}: ${upsertCount} new`)
     if (mismatches.size > 0) log.push(`${label} 닉 불일치 (${mismatches.size}종, ${skippedCount}건): ${[...mismatches].join(', ')}`)
