@@ -122,7 +122,7 @@ export default function Home() {
     }
     window.addEventListener('focus', handleFocus)
 
-    // 30초마다 자동 재로드 (탭 활성 + 로그인 상태일 때만)
+    // 30초 폴링은 fallback (Realtime 못 잡는 경우 대비, 주기 60s로 완화)
     const pollInterval = setInterval(() => {
       if (document.visibilityState !== 'visible') return
       supabase.auth.getSession().then(({ data: { session } }) => {
@@ -130,11 +130,31 @@ export default function Home() {
         const saved = localStorage.getItem('peo_active_crew')
         if (saved) loadData(session.user.id, saved)
       })
-    }, 30000)
+    }, 60000)
+
+    // Supabase Realtime: activities INSERT 발생 즉시 데이터 재로드
+    let reloadTimer: ReturnType<typeof setTimeout> | null = null
+    const channel = supabase
+      .channel('activities-changes')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'activities' }, () => {
+        // 짧은 시간 내 다중 INSERT 시 debounce (1초)
+        if (reloadTimer) clearTimeout(reloadTimer)
+        reloadTimer = setTimeout(() => {
+          if (document.visibilityState !== 'visible') return
+          supabase.auth.getSession().then(({ data: { session } }) => {
+            if (!session) return
+            const saved = localStorage.getItem('peo_active_crew')
+            if (saved) loadData(session.user.id, saved)
+          })
+        }, 1000)
+      })
+      .subscribe()
 
     return () => {
       window.removeEventListener('focus', handleFocus)
       clearInterval(pollInterval)
+      if (reloadTimer) clearTimeout(reloadTimer)
+      supabase.removeChannel(channel)
     }
   }, [])
 
