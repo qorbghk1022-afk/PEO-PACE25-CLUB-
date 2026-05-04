@@ -121,7 +121,21 @@ export default function Home() {
       })
     }
     window.addEventListener('focus', handleFocus)
-    return () => window.removeEventListener('focus', handleFocus)
+
+    // 30초마다 자동 재로드 (탭 활성 + 로그인 상태일 때만)
+    const pollInterval = setInterval(() => {
+      if (document.visibilityState !== 'visible') return
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        if (!session) return
+        const saved = localStorage.getItem('peo_active_crew')
+        if (saved) loadData(session.user.id, saved)
+      })
+    }, 30000)
+
+    return () => {
+      window.removeEventListener('focus', handleFocus)
+      clearInterval(pollInterval)
+    }
   }, [])
 
   async function loadData(userId?: string, userCrewId?: string) {
