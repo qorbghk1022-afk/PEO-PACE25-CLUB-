@@ -64,39 +64,46 @@ async function processStravaEvent(event: {
   object_type: string; aspect_type: string; object_id: number; owner_id: number;
 }) {
   const db = createServiceClient()
+  const startTs = Date.now()
+
+  // webhook_logs 한 줄 기록 (실패해도 흐름엔 영향 없음)
+  const log = async (status: string, reason?: string, nickname?: string, error?: string) => {
+    try {
+      await db.from('webhook_logs').insert({
+        event,
+        athlete_id: event.owner_id || null,
+        activity_id: event.object_id || null,
+        aspect_type: event.aspect_type || null,
+        status, reason: reason || null, member_nickname: nickname || null,
+        duration_ms: Date.now() - startTs, error: error || null,
+      })
+    } catch { /* 로깅 실패는 무시 */ }
+  }
 
   if (event.aspect_type === 'delete') {
     const { error } = await db.from('activities').delete().eq('strava_activity_id', event.object_id)
-    if (error) console.error('[Strava Webhook] Delete error:', error.message)
-    else console.log(`[Strava Webhook] Deleted activity ${event.object_id}`)
+    if (error) { await log('failed', 'delete_error', undefined, error.message); return }
+    await log('success', 'deleted')
     return
   }
 
-  if (event.aspect_type !== 'create') return
+  if (event.aspect_type !== 'create') { await log('skipped', `aspect_${event.aspect_type}`); return }
 
   const athleteId = event.owner_id
   const activityId = event.object_id
 
-  // 1. tokens 조회
   const { data: tokenRow, error: tokenErr } = await db
     .from('strava_tokens')
     .select('user_id, access_token, refresh_token, expires_at')
     .eq('athlete_id', athleteId)
     .single()
-  if (tokenErr || !tokenRow) {
-    console.log(`[Strava Webhook] Unknown athlete_id: ${athleteId}`)
-    return
-  }
+  if (tokenErr || !tokenRow) { await log('skipped', 'unknown_athlete'); return }
 
-  // 2. 토큰 refresh
   let accessToken = tokenRow.access_token
   const now = Math.floor(Date.now() / 1000)
   if (tokenRow.expires_at <= now) {
     const refreshed = await refreshStravaToken(tokenRow.refresh_token)
-    if (!refreshed) {
-      console.error(`[Strava Webhook] Token refresh failed for athlete ${athleteId}`)
-      return
-    }
+    if (!refreshed) { await log('failed', 'token_refresh_failed'); return }
     accessToken = refreshed.access_token
     await db.from('strava_tokens').update({
       access_token: refreshed.access_token,
@@ -105,28 +112,21 @@ async function processStravaEvent(event: {
     }).eq('athlete_id', athleteId)
   }
 
-  // 3. 활동 상세 fetch
   const actRes = await fetch(`${STRAVA_API}/activities/${activityId}`, {
     headers: { Authorization: `Bearer ${accessToken}` },
   })
-  if (!actRes.ok) {
-    console.error(`[Strava Webhook] Activity fetch failed: ${actRes.status}`)
-    return
-  }
+  if (!actRes.ok) { await log('failed', `activity_fetch_${actRes.status}`); return }
   const activity = await actRes.json()
 
   const ACCEPTED_RUN_TYPES = ['Run', 'TrailRun', 'TreadmillRun']
-  if (!ACCEPTED_RUN_TYPES.includes(activity.sport_type) && !ACCEPTED_RUN_TYPES.includes(activity.type)) return
-
-  // 4. member nickname
-  const { data: member } = await db.from('members')
-    .select('nickname').eq('strava_athlete_id', athleteId).single()
-  if (!member) {
-    console.log(`[Strava Webhook] No member for athlete_id: ${athleteId}`)
-    return
+  if (!ACCEPTED_RUN_TYPES.includes(activity.sport_type) && !ACCEPTED_RUN_TYPES.includes(activity.type)) {
+    await log('skipped', `not_run_${activity.type}`); return
   }
 
-  // 5. upsert
+  const { data: member } = await db.from('members')
+    .select('nickname').eq('strava_athlete_id', athleteId).single()
+  if (!member) { await log('skipped', 'no_member'); return }
+
   const distKm = (activity.distance || 0) / 1000
   const movingSec = activity.moving_time || 0
   const elapsedSec = activity.elapsed_time || movingSec
@@ -144,8 +144,8 @@ async function processStravaEvent(event: {
     crew_id: null,
   }, { onConflict: 'strava_activity_id' })
 
-  if (insertErr) console.error('[Strava Webhook] Insert error:', insertErr.message)
-  else console.log(`[Strava Webhook] Activity ${activityId} saved for ${member.nickname}`)
+  if (insertErr) { await log('failed', 'insert_error', member.nickname, insertErr.message); return }
+  await log('success', 'inserted', member.nickname)
 }
 
 // ─── Helper: Refresh Strava token ────────────────────────
