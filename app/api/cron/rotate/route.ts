@@ -40,7 +40,8 @@ export async function GET(request: Request) {
   const log: string[] = []
 
   try {
-    const today = new Date().toISOString().slice(0, 10)
+    // KST 기준 오늘 (cron이 23:00 UTC=08:00 KST에 돌 때 UTC 기준이면 어제 날짜가 됨)
+    const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' })
     const { data: crews } = await db.from('crews').select('id, name')
     if (!crews || crews.length === 0) {
       log.push('no crews')
