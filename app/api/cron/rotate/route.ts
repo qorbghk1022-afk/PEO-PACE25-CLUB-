@@ -18,7 +18,7 @@ import {
   calcTotalScore,
 } from '@/lib/scoring'
 
-export const maxDuration = 60
+export const maxDuration = 300
 
 // REST_MEMBERS (기존 cron/route.ts와 동일한 설정)
 const REST_MEMBERS: Record<string, Record<string, string>> = {
