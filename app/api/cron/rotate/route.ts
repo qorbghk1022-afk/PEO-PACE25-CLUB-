@@ -66,6 +66,18 @@ export async function GET(request: Request) {
     // 챌린지 회전 후 추첨권 재계산 (활동 데이터가 최신이라는 전제)
     const ticketResult = await syncLotteryTickets(db, log)
 
+    // LV 재계산 (매일 누적 거리 기준 갱신)
+    try {
+      const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'
+      const r = await fetch(`${baseUrl}/api/recalc`, {
+        headers: { Authorization: `Bearer ${process.env.CRON_SECRET}` },
+      })
+      const d = await r.json()
+      log.push(`recalc: ${d.updated ?? 0} members`)
+    } catch (e) {
+      log.push(`recalc err: ${e instanceof Error ? e.message : String(e)}`)
+    }
+
     await db.from('sync_logs').insert({
       activity_count: rotated,
       status: 'success',
