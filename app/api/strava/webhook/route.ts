@@ -123,8 +123,10 @@ async function processStravaEvent(event: {
     await log('skipped', `not_run_${activity.type}`); return
   }
 
-  const { data: member } = await db.from('members')
-    .select('nickname').eq('strava_athlete_id', athleteId).single()
+  // 멀티크루 멤버는 같은 닉이 여러 row → single() 대신 limit(1)
+  const { data: members } = await db.from('members')
+    .select('nickname').eq('strava_athlete_id', athleteId).limit(1)
+  const member = members?.[0]
   if (!member) { await log('skipped', 'no_member'); return }
 
   const distKm = (activity.distance || 0) / 1000
