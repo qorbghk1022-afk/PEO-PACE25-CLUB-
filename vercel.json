@@ -2,15 +2,15 @@
   "crons": [
     {
       "path": "/api/cron/sheets",
-      "schedule": "0 23 * * *"
+      "schedule": "0 15 * * *"
     },
     {
       "path": "/api/cron/strava",
-      "schedule": "0 23 * * *"
+      "schedule": "0 15 * * *"
     },
     {
       "path": "/api/cron/rotate",
-      "schedule": "10 23 * * *"
+      "schedule": "10 15 * * *"
     }
   ]
 }
