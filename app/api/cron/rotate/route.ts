@@ -63,6 +63,9 @@ export async function GET(request: Request) {
       }
     }
 
+    // Garmin↔폰 이중 sync 중복 자동 정리 (어제~오늘 활동 대상)
+    const dupResult = await cleanGarminStravaDupes(db, log)
+
     // 챌린지 회전 후 추첨권 재계산 (활동 데이터가 최신이라는 전제)
     const ticketResult = await syncLotteryTickets(db, log)
 
@@ -84,7 +87,7 @@ export async function GET(request: Request) {
       message: `rotate: ${log.join(' | ')}`,
     })
 
-    return NextResponse.json({ success: true, rotated, total_crews: crews.length, tickets: ticketResult, results, log })
+    return NextResponse.json({ success: true, rotated, total_crews: crews.length, tickets: ticketResult, dupes: dupResult, results, log })
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error)
     log.push(`ERROR: ${msg}`)
@@ -276,6 +279,68 @@ async function calcPeriodScoresForCrew(
       }
     })
     .sort((a, b) => b.total_score - a.total_score)
+}
+
+// ═══════════════════════════════════════════════════════════
+// Garmin↔폰 이중 sync 중복 자동 정리
+// 같은 닉/날짜/거리±0.3km/시간±2분 → 더 긴 거리 keep, 나머지 삭제
+// 인터벌 트레이닝 자주 하는 멤버는 DUPE_WHITELIST로 제외 (false positive 방지)
+// ═══════════════════════════════════════════════════════════
+const DUPE_WHITELIST = new Set(['에덴'])  // 인터벌 자주 하는 멤버
+
+async function cleanGarminStravaDupes(
+  db: ReturnType<typeof createServiceClient>,
+  log: string[],
+) {
+  try {
+    // 어제~오늘 활동만 (최근 추가된 dupe 위주)
+    const since = new Date(Date.now() - 2 * 86400 * 1000).toISOString().slice(0, 10)
+    const { data: acts } = await db.from('activities')
+      .select('id, member_nickname, date, distance_km, moving_time_sec')
+      .not('strava_activity_id', 'is', null)
+      .gte('date', since)
+    if (!acts || acts.length === 0) { log.push('dupes: 0 (no recent acts)'); return { deleted: 0 } }
+
+    // 닉+날짜 그룹화
+    const byKey: Record<string, typeof acts> = {}
+    for (const a of acts) {
+      if (DUPE_WHITELIST.has(a.member_nickname)) continue
+      const k = `${a.member_nickname}|${a.date}`
+      if (!byKey[k]) byKey[k] = []
+      byKey[k].push(a)
+    }
+
+    let deleted = 0
+    for (const rows of Object.values(byKey)) {
+      if (rows.length < 2) continue
+      const visited = new Set<string>()
+      for (let i = 0; i < rows.length; i++) {
+        if (visited.has(rows[i].id)) continue
+        const sub = [rows[i]]
+        for (let j = i + 1; j < rows.length; j++) {
+          if (visited.has(rows[j].id)) continue
+          const distDiff = Math.abs(Number(rows[i].distance_km) - Number(rows[j].distance_km))
+          const timeDiff = Math.abs((Number(rows[i].moving_time_sec) || 0) - (Number(rows[j].moving_time_sec) || 0))
+          if (distDiff <= 0.3 && timeDiff <= 120) {
+            sub.push(rows[j]); visited.add(rows[j].id)
+          }
+        }
+        if (sub.length > 1) {
+          visited.add(rows[i].id)
+          sub.sort((a, b) => Number(b.distance_km) - Number(a.distance_km))
+          for (let k = 1; k < sub.length; k++) {
+            const { error } = await db.from('activities').delete().eq('id', sub[k].id)
+            if (!error) deleted++
+          }
+        }
+      }
+    }
+    log.push(`dupes: ${deleted} deleted`)
+    return { deleted }
+  } catch (e) {
+    log.push(`dupes err: ${e instanceof Error ? e.message : String(e)}`)
+    return { deleted: 0 }
+  }
 }
 
 // ═══════════════════════════════════════════════════════════
