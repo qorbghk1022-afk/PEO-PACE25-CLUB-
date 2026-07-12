@@ -27,10 +27,12 @@ async function computeQuarterPool(
   const actsList = (acts || []) as Array<{ member_nickname: string; date: string; distance_km: number }>
 
   const manual: Record<string, string[]> = q.manualSessions?.[crewId] ?? {}
+  const excluded = new Set(q.excludedFromDraw?.[crewId] ?? [])
   const pool: Array<{ nickname: string; lottery_tickets: number }> = []
   const GOAL = 15
 
   for (const m of members) {
+    if (excluded.has(m.nickname)) continue  // 회비 미납 등 제외 대상
     let t = 0
     for (const cp of q.challengeDates) {
       const total = actsList

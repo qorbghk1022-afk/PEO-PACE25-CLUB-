@@ -16,6 +16,8 @@ export interface QuarterConfig {
   sessionDates: string[]             // 정기세션 3개 (매월 2째 토)
   // 크루별 매뉴얼 세션 참여자: { crewId: { 'YYYY-MM-DD': [닉네임...] } }
   manualSessions?: Record<string, Record<string, string[]>>
+  // 크루별 추첨 제외 대상 (회비 미납 등): { crewId: [닉네임...] }
+  excludedFromDraw?: Record<string, string[]>
 }
 
 export const QUARTERS: QuarterConfig[] = [
@@ -46,6 +48,10 @@ export const QUARTERS: QuarterConfig[] = [
         '2026-06-13': ['런징', '진원', '혀노'],
         '2026-07-11': ['백화'],
       },
+    },
+    excludedFromDraw: {
+      // PEO — 회비 미납
+      '0bb28fad-31df-493b-a883-fda564836a64': ['반반', '라기'],
     },
   },
   {
