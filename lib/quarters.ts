@@ -84,10 +84,9 @@ export function formatSessionLabel(dateStr: string): string {
   return `${m}월 ${d}일`
 }
 
-/** 현재 시각 기준 해당 분기 상태 판정 (KST 기준) */
+/** 현재 시각 기준 해당 분기 상태 판정 */
 export function quarterStatus(q: QuarterConfig, now: Date = new Date()): 'upcoming' | 'active' | 'ended' {
-  // KST 기준 오늘 날짜 (UTC로 계산하면 KST 자정~09시 사이 어제 날짜가 잡혀 분기 종료 판정이 하루 늦어짐)
-  const today = now.toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' })
+  const today = now.toISOString().slice(0, 10)
   if (today < q.start) return 'upcoming'
   if (today > q.end) return 'ended'
   return 'active'
