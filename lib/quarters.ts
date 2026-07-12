@@ -33,6 +33,12 @@ export const QUARTERS: QuarterConfig[] = [
       { start: '2026-06-29', end: '2026-07-12' },
     ],
     sessionDates: ['2026-05-09', '2026-06-13', '2026-07-11'],  // 매월 2째 토
+    manualSessions: {
+      '2026-05-09': ['양양', '펭귄', '고융고'],
+      '2026-06-13': ['anstmdgus73', '펭귄', '컨컨'],
+      '2026-07-11': ['펭귄', '오잉또잉'],
+    },
+    manualSessionsCrewId: '0bb28fad-31df-493b-a883-fda564836a64', // PEO 전용
   },
   {
     name: 'Q1-2026',
