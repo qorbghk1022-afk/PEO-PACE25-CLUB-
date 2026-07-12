@@ -26,7 +26,7 @@ async function computeQuarterPool(
     .or(`crew_id.eq.${crewId},crew_id.is.null`)
   const actsList = (acts || []) as Array<{ member_nickname: string; date: string; distance_km: number }>
 
-  const manual = q.manualSessions ?? {}
+  const manual: Record<string, string[]> = q.manualSessions?.[crewId] ?? {}
   const pool: Array<{ nickname: string; lottery_tickets: number }> = []
   const GOAL = 15
 

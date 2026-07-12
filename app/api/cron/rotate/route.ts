@@ -386,12 +386,11 @@ async function syncLotteryTickets(
       for (const sd of sessionDates) {
         if (new Date(sd) > now) continue
         // 1) manualSessions에 이름 있으면 자동 참여 인정 (실제 15km 안 뛰어도 +2)
-        //    quarters.ts의 manualSessionsCrewId와 crew.id가 일치하는 경우만 적용
+        //    manualSessions[crewId][sessionDate] = [닉네임...]
         let manualHit = false
         for (const q of QUARTERS) {
           if (!q.sessionDates.includes(sd)) continue
-          if (q.manualSessionsCrewId && q.manualSessionsCrewId !== crew.id) continue
-          if (q.manualSessions?.[sd]?.includes(m.nickname)) { manualHit = true; break }
+          if (q.manualSessions?.[crew.id]?.[sd]?.includes(m.nickname)) { manualHit = true; break }
         }
         if (manualHit) { tickets += 2; continue }
         // 2) 그 외에는 그날 활동 합 ≥15km 조건

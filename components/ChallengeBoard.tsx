@@ -175,10 +175,9 @@ export default function ChallengeBoard({
 
 
     // 정기세션 체크 — 분기별 정기세션 (매월 2째 토)
-    // manualSessions는 manualSessionsCrewId가 지정되면 해당 크루에만 적용
+    // manualSessions는 crewId 별로 매핑 { crewId: { date: [nicknames] } }
     const sessionDates = q.sessionDates
-    const manualApplies = !q.manualSessionsCrewId || q.manualSessionsCrewId === crewId
-    const manualSessions = manualApplies ? (q.manualSessions ?? {}) : {}
+    const manualSessions: Record<string, string[]> = crewId ? (q.manualSessions?.[crewId] ?? {}) : {}
     const todayStr = new Date().toISOString().slice(0, 10)
     const sessionMap: Record<string, boolean[]> = {}
     for (const nick of members.map(m => m.nickname)) {

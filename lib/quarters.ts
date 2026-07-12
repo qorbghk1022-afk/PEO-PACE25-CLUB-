@@ -14,8 +14,8 @@ export interface QuarterConfig {
   end: string                        // YYYY-MM-DD
   challengeDates: Array<{ start: string; end: string }>   // 2주 챌린지 6개
   sessionDates: string[]             // 정기세션 3개 (매월 2째 토)
-  manualSessions?: Record<string, string[]>  // { 'YYYY-MM-DD': [닉네임...] }
-  manualSessionsCrewId?: string       // 이 crew_id에만 manualSessions 적용 (다른 크루엔 미적용)
+  // 크루별 매뉴얼 세션 참여자: { crewId: { 'YYYY-MM-DD': [닉네임...] } }
+  manualSessions?: Record<string, Record<string, string[]>>
 }
 
 export const QUARTERS: QuarterConfig[] = [
@@ -34,11 +34,19 @@ export const QUARTERS: QuarterConfig[] = [
     ],
     sessionDates: ['2026-05-09', '2026-06-13', '2026-07-11'],  // 매월 2째 토
     manualSessions: {
-      '2026-05-09': ['양양', '펭귄', '고융고'],
-      '2026-06-13': ['anstmdgus73', '펭귄', '컨컨'],
-      '2026-07-11': ['펭귄', '오잉또잉'],
+      // PEO
+      '0bb28fad-31df-493b-a883-fda564836a64': {
+        '2026-05-09': ['양양', '펭귄', '고융고'],
+        '2026-06-13': ['anstmdgus73', '펭귄', '컨컨'],
+        '2026-07-11': ['펭귄', '오잉또잉'],
+      },
+      // HRC
+      '2891fdd5-545b-4144-81f6-229df8dd5457': {
+        '2026-05-09': ['JM', '갤러리킴', '네모러너', '머룬', '멀루', '진원', '혀노', '백화', 'SJ'],
+        '2026-06-13': ['런징', '진원', '혀노'],
+        '2026-07-11': ['백화'],
+      },
     },
-    manualSessionsCrewId: '0bb28fad-31df-493b-a883-fda564836a64', // PEO 전용
   },
   {
     name: 'Q1-2026',
@@ -54,11 +62,13 @@ export const QUARTERS: QuarterConfig[] = [
     ],
     sessionDates: ['2026-02-14', '2026-03-14', '2026-04-11'],  // 매월 2째 토
     manualSessions: {
-      '2026-02-14': ['멀루', '네모러너', '머룬', 'JM', '백화'],
-      // 3월 (03-14): 참여자 없음
-      '2026-04-11': ['머룬'],
+      // HRC (Q1은 HRC만 존재)
+      '2891fdd5-545b-4144-81f6-229df8dd5457': {
+        '2026-02-14': ['멀루', '네모러너', '머룬', 'JM', '백화'],
+        // 3월 (03-14): 참여자 없음
+        '2026-04-11': ['머룬'],
+      },
     },
-    manualSessionsCrewId: '2891fdd5-545b-4144-81f6-229df8dd5457', // HRC 전용 (PEO는 Q1 미존재)
   },
 ]
 

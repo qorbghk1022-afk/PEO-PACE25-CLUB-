@@ -59,9 +59,8 @@ export default function SeasonDraw({ member, members: _members, crewId }: { memb
     }
     setChallengeClears(clears)
 
-    // 세션 참여 체크 — activities ≥15km 또는 manualSessions 인정 (해당 크루만)
-    const manualApplies = !q.manualSessionsCrewId || q.manualSessionsCrewId === crewId
-    const manual = manualApplies ? (q.manualSessions ?? {}) : {}
+    // 세션 참여 체크 — activities ≥15km 또는 manualSessions 인정 (crewId별)
+    const manual: Record<string, string[]> = crewId ? (q.manualSessions?.[crewId] ?? {}) : {}
     const todayStr = now.toISOString().slice(0, 10)
     const sessions: (boolean | null)[] = []
     for (const sd of q.sessionDates) {
