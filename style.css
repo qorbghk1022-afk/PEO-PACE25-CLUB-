@@ -13,13 +13,13 @@
   --border: #E5E5E5;
   --card-bg: #FFFFFF;
   --card-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
-  --accent: #D92610;
-  --accent-light: #FDE8E6;
-  --speed-color: #D92610;
-  --endurance-color: #D92610;
-  --consistency-color: #D92610;
-  --cadence-color: #D92610;
-  --total-color: #D92610;
+  --accent: #111111;
+  --accent-light: #F0F0F0;
+  --speed-color: #111;
+  --endurance-color: #333;
+  --consistency-color: #555;
+  --cadence-color: #777;
+  --total-color: #000;
   --radius: 12px;
   --radius-sm: 8px;
   --font: 'Noto Sans KR', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
@@ -56,8 +56,7 @@ body {
   position: sticky;
   top: 0;
   z-index: 100;
-  background: var(--bg);
-  border-bottom: 1px solid var(--border);
+  background: #000;
   height: var(--header-height);
 }
 
@@ -70,8 +69,8 @@ body {
 }
 
 .logo-img {
-  width: 32px;
-  height: 32px;
+  width: 34px;
+  height: 34px;
   border-radius: 6px;
   object-fit: cover;
 }
@@ -80,6 +79,7 @@ body {
   font-size: 17px;
   font-weight: 800;
   letter-spacing: -0.02em;
+  color: #FFF;
 }
 
 /* ===== MAIN CONTENT ===== */
@@ -232,14 +232,14 @@ main {
 }
 .char-gauge-fill {
   height: 100%;
-  background: #D92610;
+  background: #000;
   border-radius: 4px;
   transition: width 0.5s;
 }
 .char-gauge-pct {
   font-size: 11px;
   font-weight: 700;
-  color: #D92610;
+  color: #000;
   min-width: 28px;
 }
 
@@ -252,72 +252,48 @@ main {
 .char-center-bg {
   position: relative;
   width: 100%;
-  min-height: 260px;
+  min-height: 220px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: flex-end;
-  background: linear-gradient(180deg, #FFFDF5 0%, #FFF8E1 55%, #FFE082 85%, #FFD54F 100%);
+  justify-content: center;
+  background: #F7F7F7;
   border-radius: 6px;
   overflow: hidden;
-  padding-bottom: 14px;
+  padding: 20px 14px;
 }
 
-.char-ground-shadow {
-  position: absolute;
-  bottom: 8px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 160px;
-  height: 40px;
-  background: radial-gradient(ellipse at center, rgba(200,170,0,0.35) 0%, rgba(220,190,40,0.15) 50%, transparent 75%);
-  border-radius: 50%;
-}
-
-.char-egg-wrapper {
+.char-logo-wrapper {
   position: relative;
-  z-index: 2;
   display: flex;
   flex-direction: column;
   align-items: center;
+  gap: 10px;
 }
 
-.char-egg-wrapper::before {
-  content: '';
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
+.char-logo-img {
   width: 130px;
   height: 130px;
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(250,248,247,0.9) 0%, rgba(248,240,239,0.5) 70%, transparent 100%);
-  z-index: -1;
-}
-
-.char-egg-img {
-  width: 200px;
-  height: auto;
-  image-rendering: pixelated;
-  filter: drop-shadow(0 6px 12px rgba(0,0,0,0.12));
+  object-fit: cover;
+  border: 3px solid #000;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.15);
 }
 
 .char-bib-name {
-  position: absolute;
-  top: 59%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  font-size: 12px;
-  font-weight: 800;
+  font-size: 15px;
+  font-weight: 900;
   color: #000;
   letter-spacing: -0.01em;
   text-align: center;
   white-space: nowrap;
-  pointer-events: none;
-  line-height: 1;
-  max-width: 70px;
+  max-width: 140px;
   overflow: hidden;
   text-overflow: ellipsis;
+  background: #000;
+  color: #FFF;
+  padding: 4px 14px;
+  border-radius: 20px;
 }
 
 /* -- Bottom row -- */
@@ -407,7 +383,7 @@ main {
 .lv-badge { display: none; }
 .exp-bar-fill {
   height: 100%;
-  background: #D92610;
+  background: #111;
   border-radius: 4px;
   transition: width 0.6s cubic-bezier(0.22, 1, 0.36, 1);
   width: 0%;
@@ -1060,17 +1036,17 @@ main {
 }
 
 .rank-item.top1 {
-  border-color: var(--accent);
+  border-color: #000;
   border-width: 2px;
-  background: #FEF2F1;
+  background: #F5F5F5;
 }
 
 .rank-item.top2 {
-  border-color: #E8A090;
+  border-color: #555;
 }
 
 .rank-item.top3 {
-  border-color: #EAABA0;
+  border-color: #999;
 }
 
 .rank-num {
@@ -1084,7 +1060,7 @@ main {
 .rank-item.top1 .rank-num,
 .rank-item.top2 .rank-num,
 .rank-item.top3 .rank-num {
-  color: var(--accent);
+  color: #000;
 }
 
 .rank-medal {

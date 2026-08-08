@@ -218,7 +218,7 @@
     seasonLabel.textContent = `3개월 종합 (${QUARTERLY_DATA.period.start} ~ ${QUARTERLY_DATA.period.end})`;
 
     // Update labels with scores
-    const labelNames = ['스피드', '지구력', '꾸준함', '케이던스', '롱런'];
+    const labelNames = ['스피드', '지구력', '꾸준함', '효율성', '롱런'];
     const labelsWithScores = labelNames.map((name, i) => name + '\n' + values[i]);
 
     if (radarChart) {
@@ -236,10 +236,10 @@
         datasets: [{
           label: label,
           data: values,
-          backgroundColor: 'rgba(217, 38, 16, 0.18)',
-          borderColor: '#D92610',
+          backgroundColor: 'rgba(0, 0, 0, 0.10)',
+          borderColor: '#000',
           borderWidth: 2,
-          pointBackgroundColor: '#D92610',
+          pointBackgroundColor: '#000',
           pointBorderColor: '#FFFFFF',
           pointBorderWidth: 1.5,
           pointRadius: 3,
