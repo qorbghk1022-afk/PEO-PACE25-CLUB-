@@ -23,6 +23,24 @@ export interface QuarterConfig {
 export const QUARTERS: QuarterConfig[] = [
   // 최신 분기를 맨 앞에. 새 분기 추가 시 여기에 push.
   {
+    name: 'Q3-2026',
+    start: '2026-07-13',
+    end: '2026-10-11',                 // 10/10 세션까지 인정하려고 4→11로 확장
+    challengeDates: [
+      { start: '2026-07-13', end: '2026-07-26' },
+      { start: '2026-07-27', end: '2026-08-09' },
+      { start: '2026-08-10', end: '2026-08-23' },
+      { start: '2026-08-24', end: '2026-09-06' },
+      { start: '2026-09-07', end: '2026-09-20' },
+      { start: '2026-09-21', end: '2026-10-04' },
+    ],
+    sessionDates: ['2026-08-15', '2026-09-12', '2026-10-10'],  // 8월만 예외(3째 토), 9·10월은 2째 토
+    excludedFromDraw: {
+      // PEO — 회비 미납(라기) + 탈퇴(반반, 양양)
+      '0bb28fad-31df-493b-a883-fda564836a64': ['반반', '라기', '양양'],
+    },
+  },
+  {
     name: 'Q2-2026',
     start: '2026-04-20',
     end: '2026-07-12',
@@ -50,8 +68,8 @@ export const QUARTERS: QuarterConfig[] = [
       },
     },
     excludedFromDraw: {
-      // PEO — 회비 미납
-      '0bb28fad-31df-493b-a883-fda564836a64': ['반반', '라기'],
+      // PEO — 회비 미납(라기) + 탈퇴(반반, 양양)
+      '0bb28fad-31df-493b-a883-fda564836a64': ['반반', '라기', '양양'],
     },
   },
   {
