@@ -93,7 +93,9 @@ export default function ChallengeBoard({
       .then(({ data }) => {
         if (data && data.length > 0) {
           setChallenges(data)
-          setCurrentIdx(0)
+          // localStorage에서 복원된 currentIdx가 범위를 벗어나면 클램프.
+          // 무조건 0으로 리셋하면 화면 껐다 켤 때 첫 스프린트로 튐.
+          setCurrentIdx(prev => Math.min(Math.max(prev, 0), data.length - 1))
           loadQuarterStats(data, currentQuarterIdx)
         }
         setLoading(false)
