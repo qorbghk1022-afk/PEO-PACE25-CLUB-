@@ -125,7 +125,10 @@ export async function POST(req: NextRequest) {
     })
   }
 
-  await admin.from('draw_results').insert(results)
+  const { error: insertErr } = await admin.from('draw_results').insert(results)
+  if (insertErr) {
+    return NextResponse.json({ error: `추첨 결과 저장 실패: ${insertErr.message}` }, { status: 500 })
+  }
 
   const drawPoolNicks = Array.from(new Set(members.map(m => m.nickname)))
   if (drawPoolNicks.length > 0) {
